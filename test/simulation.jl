@@ -43,4 +43,45 @@ using Dates
         fill_impact = execute(impact, large_order, prices)
         @test fill_impact.price > fill_slip.price  # More slippage due to size
     end
+
+    @testset "Simulation Driver" begin
+        # Create a simple historical driver
+        timestamps = [DateTime(2024, 1, i) for i in 1:5]
+        price_series = Dict(
+            :AAPL => [150.0, 152.0, 148.0, 155.0, 153.0],
+            :GOOGL => [140.0, 142.0, 141.0, 145.0, 144.0]
+        )
+
+        driver = HistoricalDriver(timestamps, price_series)
+
+        # Driver should be iterable
+        states = collect(driver)
+        @test length(states) == 5
+        @test states[1].timestamp == DateTime(2024, 1, 1)
+        @test states[1].prices[:AAPL] == 150.0
+        @test states[3].prices[:GOOGL] == 141.0
+    end
+
+    @testset "SimulationResult" begin
+        # Run a simple simulation
+        timestamps = [DateTime(2024, 1, i) for i in 1:5]
+        price_series = Dict(
+            :AAPL => [150.0, 152.0, 148.0, 155.0, 153.0]
+        )
+
+        driver = HistoricalDriver(timestamps, price_series)
+        initial_state = SimulationState(
+            timestamp=DateTime(2024, 1, 1),
+            cash=10_000.0,
+            positions=Dict(:AAPL => 100.0),
+            prices=Dict(:AAPL => 150.0)
+        )
+
+        result = simulate(driver, initial_state)
+
+        @test length(result.states) == 5
+        @test result.initial_value == 10_000.0 + 100 * 150.0
+        @test result.final_value == 10_000.0 + 100 * 153.0
+        @test length(result.returns) == 4  # n-1 returns
+    end
 end

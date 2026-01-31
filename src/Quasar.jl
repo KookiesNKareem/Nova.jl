@@ -123,5 +123,7 @@ using .Simulation
 export SimulationState, portfolio_value
 export Order, Fill, AbstractExecutionModel, InstantFill, SlippageModel, MarketImpactModel
 export execute
+export MarketSnapshot, AbstractDriver, HistoricalDriver
+export SimulationResult, simulate
 
 end

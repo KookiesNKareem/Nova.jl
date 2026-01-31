@@ -171,6 +171,112 @@ function execute(model::MarketImpactModel, order::Order, prices::Dict{Symbol,<:R
 end
 
 # ============================================================================
+# Simulation Drivers
+# ============================================================================
+
+abstract type AbstractDriver end
+
+"""
+    MarketSnapshot
+
+Market data at a single point in time (yielded by drivers).
+"""
+struct MarketSnapshot
+    timestamp::DateTime
+    prices::Dict{Symbol,Float64}
+end
+
+"""
+    HistoricalDriver <: AbstractDriver
+
+Driver that replays historical price data.
+"""
+struct HistoricalDriver <: AbstractDriver
+    timestamps::Vector{DateTime}
+    price_series::Dict{Symbol,Vector{Float64}}
+
+    function HistoricalDriver(timestamps, price_series)
+        n = length(timestamps)
+        for (sym, prices) in price_series
+            length(prices) == n || error("Price series for $sym has wrong length")
+        end
+        new(timestamps, price_series)
+    end
+end
+
+Base.length(d::HistoricalDriver) = length(d.timestamps)
+
+function Base.iterate(d::HistoricalDriver, state=1)
+    state > length(d.timestamps) && return nothing
+
+    prices = Dict{Symbol,Float64}()
+    for (sym, series) in d.price_series
+        prices[sym] = series[state]
+    end
+
+    snapshot = MarketSnapshot(d.timestamps[state], prices)
+    return (snapshot, state + 1)
+end
+
+# ============================================================================
+# Simulation Result
+# ============================================================================
+
+"""
+    SimulationResult{T}
+
+Complete result of running a simulation.
+"""
+struct SimulationResult{T}
+    states::Vector{SimulationState{T}}
+    initial_value::T
+    final_value::T
+    returns::Vector{T}
+    trades::Vector{Fill}
+    metadata::Dict{Symbol,Any}
+end
+
+"""
+    simulate(driver, initial_state; execution_model=InstantFill())
+
+Run simulation over the driver's time series.
+"""
+function simulate(driver::AbstractDriver, initial_state::SimulationState{T};
+                  execution_model::AbstractExecutionModel=InstantFill()) where T
+
+    states = SimulationState{T}[]
+    trades = Fill[]
+
+    current_state = initial_state
+
+    for snapshot in driver
+        # Update state with new prices
+        new_state = SimulationState{T}(
+            snapshot.timestamp,
+            current_state.cash,
+            copy(current_state.positions),
+            snapshot.prices,
+            copy(current_state.metadata)
+        )
+        push!(states, new_state)
+        current_state = new_state
+    end
+
+    # Compute returns
+    values = [portfolio_value(s) for s in states]
+    returns = T[(values[i] - values[i-1]) / values[i-1] for i in 2:length(values)]
+
+    SimulationResult{T}(
+        states,
+        portfolio_value(states[1]),
+        portfolio_value(states[end]),
+        returns,
+        trades,
+        Dict{Symbol,Any}()
+    )
+end
+
+# ============================================================================
 # Exports
 # ============================================================================
 
@@ -178,5 +284,7 @@ export SimulationState, portfolio_value
 export Order, Fill
 export AbstractExecutionModel, InstantFill, SlippageModel, MarketImpactModel
 export execute
+export MarketSnapshot, AbstractDriver, HistoricalDriver
+export SimulationResult, simulate
 
 end
