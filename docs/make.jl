@@ -20,6 +20,12 @@ makedocs(;
             "getting-started/installation.md",
             "getting-started/quickstart.md",
         ],
+        "Examples" => [
+            "examples/option-pricing.md",
+            "examples/portfolio-risk.md",
+            "examples/yield-curve.md",
+            "examples/monte-carlo-exotic.md",
+        ],
         "Manual" => [
             "manual/backends.md",
             "manual/montecarlo.md",
