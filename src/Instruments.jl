@@ -6,10 +6,7 @@ using Distributions: Normal, cdf
 # Import to extend
 import ..Core: priceable, differentiable, greeks_trait
 
-# ============================================================================
 # Stock
-# ============================================================================
-
 """
     Stock <: AbstractEquity
 
