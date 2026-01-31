@@ -100,6 +100,14 @@ for nsteps in [12, 52, 252]
 end
 ```
 
+**Output:**
+```
+Impact of Averaging Frequency:
+  Monthly: $5.6694
+  Weekly: $5.7589
+  Daily: $5.7062
+```
+
 ## Barrier Options
 
 Barrier options are knocked out (or in) when the price crosses a barrier:
@@ -151,6 +159,12 @@ println("\nDown-and-Out Put (K=100, B=80):")
 println("  Price: \$$(round(result.price, digits=4))")
 ```
 
+**Output:**
+```
+Down-and-Out Put (K=100, B=80):
+  Price: $1.7633
+```
+
 ### Barrier Monitoring Frequency
 
 ```julia
@@ -163,6 +177,16 @@ for nsteps in [12, 52, 252, 504]
     )
     println("  $nsteps steps/year: \$$(round(result.price, digits=4))")
 end
+```
+
+**Output:**
+```
+Barrier Monitoring Frequency Impact:
+(More monitoring = more chances to hit barrier = lower price)
+  12 steps/year: $1.8603
+  52 steps/year: $1.4968
+  252 steps/year: $1.3657
+  504 steps/year: $1.3002
 ```
 
 ## American Options (Longstaff-Schwartz)

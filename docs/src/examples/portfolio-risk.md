@@ -123,6 +123,14 @@ for (underlying, g) in greeks_by_underlying(portfolio, state)
 end
 ```
 
+**Output:**
+```
+Greeks by Underlying:
+  GOOGL: Δ=10.47, Γ=0.2682, V=7.89
+  MSFT: Δ=7.1, Γ=0.1428, V=11.34
+  AAPL: Δ=6.86, Γ=0.0815, V=2.29
+```
+
 ## Risk Metrics
 
 ### Value at Risk (VaR)
@@ -176,6 +184,14 @@ println("  99% VaR:  \$$(round(var_99, digits=2))")
 println("  95% CVaR: \$$(round(cvar_95, digits=2))")
 ```
 
+**Output:**
+```
+Risk Metrics (1-day, simulated):
+  95% VaR:  $-125.78
+  99% VaR:  $-181.76
+  95% CVaR: $-160.04
+```
+
 ### Greeks-Based VaR
 
 A faster approximation using delta-gamma:
@@ -213,6 +229,11 @@ dg_var = delta_gamma_var(portfolio, state)
 println("\nDelta-Gamma VaR (95%): \$$(round(dg_var, digits=2))")
 ```
 
+**Output:**
+```
+Delta-Gamma VaR (95%): $114.54
+```
+
 ## Stress Testing
 
 ```julia
@@ -244,6 +265,16 @@ for (name, spot_mult, vol_mult) in scenarios
 end
 ```
 
+**Output:**
+```
+Stress Test Results:
+------------------------------------------------------------
+Market Crash (-10%)  | P&L: $   -183.48 | -36.2%
+Tech Rally (+5%)     | P&L: $    239.02 | 47.2%
+Vol Spike            | P&L: $    271.06 | 53.5%
+Rate Hike            | P&L: $    -98.27 | -19.4%
+```
+
 ## Hedging Strategies
 
 ### Delta Hedging
@@ -266,6 +297,14 @@ for (underlying, delta) in delta_exposure
 end
 ```
 
+**Output:**
+```
+Delta Hedge Required:
+  GOOGL: -1047 shares ($146530)
+  MSFT: -710 shares ($269661)
+  AAPL: -686 shares ($102901)
+```
+
 ### Vega Hedging
 
 ```julia
@@ -285,6 +324,12 @@ straddle_vega = hedge_call_vega + hedge_put_vega
 
 contracts_needed = -total_vega / straddle_vega
 println("Hedge with $(round(contracts_needed, digits=1)) AAPL 150 straddles (1M)")
+```
+
+**Output:**
+```
+Vega Exposure: 21.52
+Hedge with -62.6 AAPL 150 straddles (1M)
 ```
 
 ## Attribution Analysis
@@ -331,6 +376,16 @@ println("  Delta:       \$$(round(attr.delta, digits=2))")
 println("  Gamma:       \$$(round(attr.gamma, digits=2))")
 println("  Vega:        \$$(round(attr.vega, digits=2))")
 println("  Unexplained: \$$(round(attr.unexplained, digits=2))")
+```
+
+**Output:**
+```
+P&L Attribution:
+  Total P&L:   $123.33
+  Delta:       $73.27
+  Gamma:       $2.22
+  Vega:        $43.04
+  Unexplained: $4.8
 ```
 
 ## Next Steps

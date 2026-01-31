@@ -34,6 +34,13 @@ println("  DiscountCurve: $(round(discount(dc, 2.0), digits=6))")
 println("  ZeroCurve:     $(round(discount(zc, 2.0), digits=6))")
 ```
 
+**Output:**
+```
+Discount factors at 2Y:
+  DiscountCurve: 0.9048
+  ZeroCurve:     0.904837
+```
+
 ### Flat Curves
 
 For quick calculations, use flat curves:
@@ -44,6 +51,14 @@ println("\n5% flat curve:")
 println("  1Y discount: $(round(discount(flat, 1.0), digits=4))")
 println("  5Y discount: $(round(discount(flat, 5.0), digits=4))")
 println("  10Y discount: $(round(discount(flat, 10.0), digits=4))")
+```
+
+**Output:**
+```
+5% flat curve:
+  1Y discount: 0.9512
+  5Y discount: 0.7788
+  10Y discount: 0.6065
 ```
 
 ## Curve Operations
@@ -66,6 +81,14 @@ println("1Y-2Y forward rate: $(round(f_1Y_2Y * 100, digits=3))%")
 # Instantaneous forward rate at T
 inst_fwd = instantaneous_forward(curve, 2.0)
 println("Instantaneous forward at 2Y: $(round(inst_fwd * 100, digits=3))%")
+```
+
+**Output:**
+```
+5Y discount factor: 0.778801
+5Y zero rate: 5.0%
+1Y-2Y forward rate: 5.127%
+Instantaneous forward at 2Y: 5.0%
 ```
 
 ## Bootstrapping from Market Instruments
@@ -126,6 +149,14 @@ println("  Log-linear: $(round(zero_rate(curve_loglin, 2.5)*100, digits=4))%")
 println("  Cubic spline: $(round(zero_rate(curve_spline, 2.5)*100, digits=4))%")
 ```
 
+**Output:**
+```
+2.5Y Zero Rate by Interpolation Method:
+  Linear:     5.2616%
+  Log-linear: 5.3494%
+  Cubic spline: 5.2616%
+```
+
 ## Parametric Curves
 
 ### Nelson-Siegel Model
@@ -154,6 +185,24 @@ for (T, obs) in zip(maturities, observed_rates)
 end
 ```
 
+**Output:**
+```
+Nelson-Siegel Parameters:
+  β₀ (level): 0.0611
+  β₁ (slope): -0.0135
+  β₂ (curvature): -0.0021
+  τ (decay): 2.1173
+
+Fitted vs Observed:
+  0.25Y: fitted=4.823%, obs=4.8%, error=2.3bp
+  0.5Y: fitted=4.884%, obs=4.9%, error=-1.56bp
+  1.0Y: fitted=4.996%, obs=5.0%, error=-0.4bp
+  2.0Y: fitted=5.181%, obs=5.2%, error=-1.87bp
+  5.0Y: fitted=5.531%, obs=5.5%, error=3.13bp
+  10.0Y: fitted=5.785%, obs=5.8%, error=-1.52bp
+  30.0Y: fitted=6.001%, obs=6.0%, error=0.05bp
+```
+
 ### Svensson Extension
 
 For more complex shapes, use the Svensson model (adds a second hump):
@@ -170,6 +219,17 @@ println("  τ₁: $(round(sv_curve.τ1, digits=4))")
 println("  τ₂: $(round(sv_curve.τ2, digits=4))")
 ```
 
+**Output:**
+```
+Svensson Parameters:
+  β₀: 0.0612
+  β₁: -0.0137
+  β₂: -0.0014
+  β₃: -0.0008
+  τ₁: 2.1467
+  τ₂: 4.8462
+```
+
 ## Bond Pricing
 
 ### Zero-Coupon Bonds
@@ -184,6 +244,13 @@ pv = price(zcb, curve)
 println("\n5Y Zero-Coupon Bond:")
 println("  Price: \$$(round(pv, digits=4))")
 println("  Yield: $(round(-log(pv/100)/5 * 100, digits=3))%")
+```
+
+**Output:**
+```
+5Y Zero-Coupon Bond:
+  Price: $75.2048
+  Yield: 5.699%
 ```
 
 ### Coupon Bonds
@@ -253,6 +320,14 @@ println("  Duration approx: \$$(round(price_duration - pv_yield, digits=4))")
 println("  Duration+Convexity: \$$(round(price_convexity - pv_yield, digits=4))")
 ```
 
+**Output:**
+```
+Price Change for +100bp:
+  Actual: $-4.3751
+  Duration approx: $-4.2464
+  Duration+Convexity: $-4.1398
+```
+
 ## Day Count Conventions
 
 ```julia
@@ -295,6 +370,14 @@ println("5Y Floor at 4%:")
 println("  Price: \$$(round(floor_price * 10000, digits=2)) per \$10,000 notional")
 ```
 
+**Output:**
+```
+5Y Cap at 5%:
+  Price: $250.68 per $10,000 notional
+5Y Floor at 4%:
+  Price: $74.4 per $10,000 notional
+```
+
 ### Swaptions
 
 ```julia
@@ -310,6 +393,13 @@ receiver_price = price(receiver, curve, swaption_vol)
 println("\n1Y x 5Y Swaptions at 5%:")
 println("  Payer: \$$(round(payer_price * 10000, digits=2)) per \$10,000")
 println("  Receiver: \$$(round(receiver_price * 10000, digits=2)) per \$10,000")
+```
+
+**Output:**
+```
+1Y x 5Y Swaptions at 5%:
+  Payer: $138.54 per $10,000
+  Receiver: $112.35 per $10,000
 ```
 
 ## Short-Rate Models
@@ -344,6 +434,21 @@ println("  Min:  $(round(minimum(terminal_rates)*100, digits=3))%")
 println("  Max:  $(round(maximum(terminal_rates)*100, digits=3))%")
 ```
 
+**Output:**
+```
+Vasicek Bond Prices:
+  1Y: P=0.967837, yield=3.269%
+  2Y: P=0.93265, yield=3.486%
+  5Y: P=0.82164, yield=3.929%
+  10Y: P=0.650514, yield=4.3%
+
+5Y Rate Distribution (Vasicek):
+  Mean: 4.659%
+  Std:  1.827%
+  Min:  -1.72%
+  Max:  10.815%
+```
+
 ### CIR Model
 
 ```julia
@@ -357,6 +462,13 @@ println("  Feller condition satisfied: $feller")
 
 paths_cir = simulate_short_rate(cir, 5.0, 252, 1000)
 println("  All rates positive: $(all(paths_cir .>= 0))")
+```
+
+**Output:**
+```
+CIR Model:
+  Feller condition satisfied: true
+  All rates positive: true
 ```
 
 ### Hull-White Model
@@ -373,6 +485,14 @@ for T in [1.0, 2.0, 5.0]
     market_price = discount(market_curve, T)
     println("  $(Int(T))Y: HW=$(round(hw_price, digits=6)), Market=$(round(market_price, digits=6))")
 end
+```
+
+**Output:**
+```
+Hull-White (calibrated to market):
+  1Y: HW=0.965605, Market=0.965605
+  2Y: HW=0.923116, Market=0.923116
+  5Y: HW=0.798516, Market=0.798516
 ```
 
 ## Curve Risk (Key Rate Duration)
