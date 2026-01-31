@@ -38,7 +38,7 @@ export VaR, CVaR, Volatility, Sharpe, MaxDrawdown, compute
 # Optimization
 include("Optimization/Optimization.jl")
 using .Optimization
-export optimize, MeanVariance, CVaRObjective, KellyCriterion
+export optimize, MeanVariance, SharpeMaximizer, CVaRObjective, KellyCriterion, OptimizationResult
 
 # Market data
 include("MarketData/MarketData.jl")

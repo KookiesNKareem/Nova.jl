@@ -7,4 +7,5 @@ using Quasar
     include("Instruments/test_instruments.jl")
     include("Portfolio/test_portfolio.jl")
     include("Risk/test_risk.jl")
+    include("Optimization/test_optimization.jl")
 end
