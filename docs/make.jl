@@ -11,7 +11,6 @@ makedocs(;
     format=DocumenterVitepress.MarkdownVitepress(
         repo="https://github.com/KookiesNKareem/Quasar.jl",
         devbranch="main",
-        devurl="dev",
         build_vitepress=false,  # Don't use JLL Node.js - we'll build manually
     ),
     pages=[
