@@ -72,7 +72,9 @@ jobs:
         run: julia --project=docs docs/make.jl
       - name: Install npm dependencies
         working-directory: docs
-        run: npm install
+        run: |
+          npm install
+          npm install @rollup/rollup-linux-x64-gnu --save-optional
       - name: Build VitePress site
         working-directory: docs
         run: npm run docs:build

@@ -52,6 +52,7 @@ using .BatchPricing
 export sabr_vols_batch, sabr_prices_batch
 export PrecompiledSABRCalibrator, compile_gpu!, calibrate!
 export GeneralSABRCalibrator, compile_general!, calibrate_general!
+export BatchSABRCalibrator, compile_batch!, calibrate_batch!
 export price_surface_batch
 
 # Model calibration

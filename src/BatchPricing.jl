@@ -260,9 +260,124 @@ function _call_general_grad(cal::GeneralSABRCalibrator, x, strikes, market_vols)
     _REACTANT_CALL_GENERAL_GRAD[](cal, x, strikes, market_vols)
 end
 
+# ============================================================================
+# Batch Calibrator - Calibrate MANY smiles in ONE GPU call
+# ============================================================================
+
+const _REACTANT_COMPILE_BATCH = Ref{Any}(nothing)
+const _REACTANT_CALL_BATCH_GRAD = Ref{Any}(nothing)
+
+"""
+    BatchSABRCalibrator
+
+Calibrate multiple smiles in a single GPU operation.
+This is where GPU truly wins - massive parallelism.
+
+# Example
+```julia
+cal = BatchSABRCalibrator(30, 100, 100.0, 1.0, 0.5)  # 30 strikes, 100 smiles
+compile_batch!(cal)  # One-time
+
+# Pack data: [n_strikes × n_smiles] matrices
+all_strikes = ...  # 30×100 matrix
+all_vols = ...     # 30×100 matrix
+x0 = ...           # 3×100 matrix (initial params for each smile)
+
+results = calibrate_batch!(cal, all_strikes, all_vols, x0; max_iter=100)
+# Returns: (params=[3×100], losses=[100], converged=[100])
+```
+"""
+mutable struct BatchSABRCalibrator
+    n_strikes::Int
+    n_smiles::Int
+    F::Float64
+    T::Float64
+    β::Float64
+    compiled_grad::Any
+    compiled::Bool
+end
+
+function BatchSABRCalibrator(n_strikes::Int, n_smiles::Int, F::Float64, T::Float64, β::Float64)
+    BatchSABRCalibrator(n_strikes, n_smiles, F, T, β, nothing, false)
+end
+
+"""
+    compile_batch!(cal::BatchSABRCalibrator)
+
+Compile gradient for batch calibration.
+"""
+function compile_batch!(cal::BatchSABRCalibrator)
+    if _REACTANT_COMPILE_BATCH[] === nothing
+        error("compile_batch! requires Reactant. Load it with: using Reactant")
+    end
+    _REACTANT_COMPILE_BATCH[](cal)
+    cal.compiled = true
+    cal
+end
+
+"""
+    calibrate_batch!(cal, strikes, market_vols, x0; max_iter=100, lr=0.01)
+
+Calibrate all smiles in parallel on GPU.
+
+# Arguments
+- `strikes`: [n_strikes × n_smiles] matrix
+- `market_vols`: [n_strikes × n_smiles] matrix
+- `x0`: [3 × n_smiles] initial parameters
+
+# Returns
+Named tuple with `params`, `losses`, `iters`
+"""
+function calibrate_batch!(cal::BatchSABRCalibrator,
+                          strikes::Matrix{Float64},
+                          market_vols::Matrix{Float64},
+                          x0::Matrix{Float64};
+                          max_iter::Int=100, lr::Float64=0.01, tol::Float64=1e-8)
+    @assert size(strikes) == (cal.n_strikes, cal.n_smiles)
+    @assert size(market_vols) == (cal.n_strikes, cal.n_smiles)
+    @assert size(x0) == (3, cal.n_smiles)
+    @assert cal.compiled "Call compile_batch!(cal) first"
+
+    if _REACTANT_CALL_BATCH_GRAD[] === nothing
+        error("Batch gradient not available")
+    end
+
+    F, T, β = cal.F, cal.T, cal.β
+    n_smiles = cal.n_smiles
+
+    # Loss for single smile (CPU fallback for loss evaluation)
+    function loss_single(p, K_vec, mv_vec)
+        α, ρ, ν = abs(p[1]), tanh(p[2]), exp(p[3])
+        sum((_sabr_vol_gpu(F, K, T, α, β, ρ, ν) - mv)^2 for (K, mv) in zip(K_vec, mv_vec)) / length(K_vec)
+    end
+
+    x = copy(x0)
+    prev_losses = fill(Inf, n_smiles)
+
+    for iter in 1:max_iter
+        # GPU: compute all gradients in parallel
+        g = _REACTANT_CALL_BATCH_GRAD[](cal, x, strikes, market_vols)
+
+        # Update all params
+        x_new = x - lr * g
+
+        # Check convergence (on CPU)
+        losses = [loss_single(x_new[:, j], strikes[:, j], market_vols[:, j]) for j in 1:n_smiles]
+
+        if maximum(abs.(losses .- prev_losses)) < tol
+            return (params=x_new, losses=losses, iters=iter)
+        end
+
+        x, prev_losses = x_new, losses
+    end
+
+    (params=x, losses=prev_losses, iters=max_iter)
+end
+
 export sabr_vols_batch, sabr_prices_batch
 export PrecompiledSABRCalibrator, compile_gpu!, calibrate!
 export GeneralSABRCalibrator, compile_general!, calibrate_general!
+export BatchSABRCalibrator, compile_batch!, calibrate_batch!
 export price_surface_batch
 
 end

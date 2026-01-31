@@ -213,12 +213,100 @@ function _reactant_call_general_grad(cal::Quasar.BatchPricing.GeneralSABRCalibra
     Array(cal.compiled_grad(x_r, K_r, mv_r))
 end
 
+# ============================================================================
+# Batch Calibrator - ALL smiles in ONE GPU operation
+# ============================================================================
+
+function _reactant_compile_batch!(cal::Quasar.BatchPricing.BatchSABRCalibrator)
+    F, T, β = cal.F, cal.T, cal.β
+    n_strikes, n_smiles = cal.n_strikes, cal.n_smiles
+    MASK3_1 = Quasar.BatchPricing.MASK3_1
+    MASK3_2 = Quasar.BatchPricing.MASK3_2
+    MASK3_3 = Quasar.BatchPricing.MASK3_3
+
+    # One-hot masks for strikes
+    strike_masks = [Float64[i == j ? 1.0 : 0.0 for j in 1:n_strikes] for i in 1:n_strikes]
+
+    function sabr_vol_traced(F, K, T, α, β, ρ, ν)
+        logFK = log(F / K + 1e-12)
+        FK_mid = (F * K)^((1 - β) / 2)
+        z = (ν / α) * FK_mid * logFK
+        z_sq = z^2
+        sqrt_term = sqrt(1 - 2*ρ*z + z_sq + 1e-12)
+        log_arg = max((sqrt_term + z - ρ) / (1 - ρ + 1e-12), 1e-12)
+        x_z_full = z / (log(log_arg) + 1e-12)
+        w = z_sq / (z_sq + 1e-6)
+        x_z = (1 - w) * (1 + ρ * z / 2) + w * x_z_full
+        denom = 1 + (1-β)^2/24 * logFK^2 + (1-β)^4/1920 * logFK^4
+        A = α / (FK_mid * denom + 1e-12)
+        C1 = ((1-β)^2 / 24) * (α^2 / (FK_mid^2 + 1e-12))
+        C2 = (ρ * β * ν * α) / (4 * FK_mid + 1e-12)
+        C3 = (2 - 3*ρ^2) * ν^2 / 24
+        A * x_z * (1 + (C1 + C2 + C3) * T)
+    end
+
+    # One-hot masks for smile index
+    smile_masks = [Float64[i == j ? 1.0 : 0.0 for j in 1:n_smiles] for i in 1:n_smiles]
+
+    # Total loss = sum of all individual losses
+    function total_loss(params, K_mat, mv_mat)
+        # params: [3 × n_smiles], K_mat: [n_strikes × n_smiles], mv_mat: [n_strikes × n_smiles]
+        total_err = zero(eltype(params))
+        for s in 1:n_smiles
+            # Extract params for this smile using masks
+            p1 = sum(params[1, :] .* smile_masks[s])
+            p2 = sum(params[2, :] .* smile_masks[s])
+            p3 = sum(params[3, :] .* smile_masks[s])
+            α = abs(p1)
+            ρ = tanh(p2)
+            ν = exp(p3)
+
+            for i in 1:n_strikes
+                K_i = sum(K_mat[:, s] .* strike_masks[i])
+                mv_i = sum(mv_mat[:, s] .* strike_masks[i])
+                model_vol = sabr_vol_traced(F, K_i, T, α, β, ρ, ν)
+                total_err += (model_vol - mv_i)^2
+            end
+        end
+        total_err / (n_strikes * n_smiles)
+    end
+
+    function grad_fn(params, K_mat, mv_mat)
+        dp = zero(params)
+        Enzyme.autodiff(Enzyme.Reverse,
+            (p, k, m) -> total_loss(p, k, m),
+            Enzyme.Active,
+            Enzyme.Duplicated(params, dp),
+            Enzyme.Const(K_mat),
+            Enzyme.Const(mv_mat))
+        dp
+    end
+
+    # Compile with dummy inputs
+    x_react = Reactant.ConcreteRArray(fill(0.2, 3, n_smiles))
+    K_react = Reactant.ConcreteRArray(fill(100.0, n_strikes, n_smiles))
+    mv_react = Reactant.ConcreteRArray(fill(0.2, n_strikes, n_smiles))
+
+    cal.compiled_grad = Reactant.@compile grad_fn(x_react, K_react, mv_react)
+    cal
+end
+
+function _reactant_call_batch_grad(cal::Quasar.BatchPricing.BatchSABRCalibrator,
+                                   x, strikes, market_vols)
+    x_r = Reactant.ConcreteRArray(x)
+    K_r = Reactant.ConcreteRArray(strikes)
+    mv_r = Reactant.ConcreteRArray(market_vols)
+    Array(cal.compiled_grad(x_r, K_r, mv_r))
+end
+
 # Register callbacks
 function __init__()
     Quasar.BatchPricing._REACTANT_COMPILE_GPU[] = _reactant_compile_gpu!
     Quasar.BatchPricing._REACTANT_CALL_GRAD[] = _reactant_call_compiled_grad
     Quasar.BatchPricing._REACTANT_COMPILE_GENERAL[] = _reactant_compile_general!
     Quasar.BatchPricing._REACTANT_CALL_GENERAL_GRAD[] = _reactant_call_general_grad
+    Quasar.BatchPricing._REACTANT_COMPILE_BATCH[] = _reactant_compile_batch!
+    Quasar.BatchPricing._REACTANT_CALL_BATCH_GRAD[] = _reactant_call_batch_grad
 end
 
 end # module
