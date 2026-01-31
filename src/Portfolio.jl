@@ -11,17 +11,37 @@ import ..Core: priceable, differentiable
 # ============================================================================
 
 """
-    Portfolio{I<:AbstractInstrument}
+    Portfolio{I<:AbstractInstrument} <: AbstractPortfolio
 
-A collection of instruments with positions.
+A collection of financial instruments with associated position weights.
 
 # Fields
 - `instruments::Vector{I}` - The instruments in the portfolio
-- `weights::Vector{Float64}` - Position sizes (can be shares, contracts, notional)
+- `weights::Vector{Float64}` - Position sizes (can be shares, contracts, or notional amounts)
+
+# Constructors
+- `Portfolio(instruments, weights)` - Create from vectors (type inferred)
+- `Portfolio{I}(instruments, weights)` - Create with explicit instrument type
+
+# Example
+```julia
+# Create a portfolio of options
+call = EuropeanOption("AAPL", 150.0, 1.0, :call)
+put = EuropeanOption("AAPL", 140.0, 1.0, :put)
+portfolio = Portfolio([call, put], [100.0, -50.0])  # Long 100 calls, short 50 puts
+
+# Price the portfolio
+state = MarketState(
+    prices=Dict("AAPL" => 150.0),
+    rates=Dict("USD" => 0.05),
+    volatilities=Dict("AAPL" => 0.2),
+    timestamp=0.0
+)
+total_value = portfolio_value(portfolio, state)
+```
+
+See also: [`portfolio_value`](@ref), [`portfolio_greeks`](@ref)
 """
-# TODO: Add thread-safe operations for concurrent access
-# TODO: Add lazy evaluation for large portfolios
-# TODO: Add caching for computed values (Greeks, etc.)
 struct Portfolio{I<:AbstractInstrument} <: AbstractPortfolio
     instruments::Vector{I}
     weights::Vector{Float64}

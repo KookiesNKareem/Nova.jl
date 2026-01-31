@@ -46,29 +46,137 @@ end
 # Payoffs
 # ============================================================================
 
+"""
+    AbstractPayoff
+
+Abstract base type for all Monte Carlo payoff definitions.
+
+Subtypes must implement `payoff(p::MyPayoff, path::Vector) -> Float64`
+where `path` is a simulated price path.
+"""
 abstract type AbstractPayoff end
 
+"""
+    EuropeanCall(K)
+
+European call option payoff: max(S_T - K, 0).
+
+# Arguments
+- `K::Float64` - Strike price
+
+# Example
+```julia
+payoff_fn = EuropeanCall(100.0)
+result = mc_price(payoff_fn, dynamics, 1.0, 10000)
+```
+"""
 struct EuropeanCall <: AbstractPayoff
     K::Float64
 end
 
+"""
+    EuropeanPut(K)
+
+European put option payoff: max(K - S_T, 0).
+
+# Arguments
+- `K::Float64` - Strike price
+
+# Example
+```julia
+payoff_fn = EuropeanPut(100.0)
+result = mc_price(payoff_fn, dynamics, 1.0, 10000)
+```
+"""
 struct EuropeanPut <: AbstractPayoff
     K::Float64
 end
 
+"""
+    AsianCall(K)
+
+Asian call option with arithmetic average: max(avg(S) - K, 0).
+
+The payoff is based on the arithmetic average of the price path,
+not just the terminal value.
+
+# Arguments
+- `K::Float64` - Strike price
+
+# Example
+```julia
+payoff_fn = AsianCall(100.0)
+result = mc_price(payoff_fn, dynamics, 1.0, 10000; nsteps=252)
+```
+"""
 struct AsianCall <: AbstractPayoff
     K::Float64
 end
 
+"""
+    AsianPut(K)
+
+Asian put option with arithmetic average: max(K - avg(S), 0).
+
+The payoff is based on the arithmetic average of the price path,
+not just the terminal value.
+
+# Arguments
+- `K::Float64` - Strike price
+
+# Example
+```julia
+payoff_fn = AsianPut(100.0)
+result = mc_price(payoff_fn, dynamics, 1.0, 10000; nsteps=252)
+```
+"""
 struct AsianPut <: AbstractPayoff
     K::Float64
 end
 
+"""
+    UpAndOutCall(K, barrier)
+
+Up-and-out barrier call option.
+
+The option becomes worthless (knocks out) if the underlying price
+ever touches or exceeds the barrier during the option's life.
+Otherwise, pays max(S_T - K, 0) at expiry.
+
+# Arguments
+- `K::Float64` - Strike price
+- `barrier::Float64` - Upper barrier level (must be > K for typical usage)
+
+# Example
+```julia
+payoff_fn = UpAndOutCall(100.0, 120.0)  # Knocks out if S >= 120
+result = mc_price(payoff_fn, dynamics, 1.0, 10000; nsteps=252)
+```
+"""
 struct UpAndOutCall <: AbstractPayoff
     K::Float64
     barrier::Float64
 end
 
+"""
+    DownAndOutPut(K, barrier)
+
+Down-and-out barrier put option.
+
+The option becomes worthless (knocks out) if the underlying price
+ever touches or falls below the barrier during the option's life.
+Otherwise, pays max(K - S_T, 0) at expiry.
+
+# Arguments
+- `K::Float64` - Strike price
+- `barrier::Float64` - Lower barrier level (must be < K for typical usage)
+
+# Example
+```julia
+payoff_fn = DownAndOutPut(100.0, 80.0)  # Knocks out if S <= 80
+result = mc_price(payoff_fn, dynamics, 1.0, 10000; nsteps=252)
+```
+"""
 struct DownAndOutPut <: AbstractPayoff
     K::Float64
     barrier::Float64
