@@ -30,7 +30,7 @@ end
 """
     sabr_vols_batch(F, strikes, T, α, β, ρ, ν) -> Vector{Float64}
 
-Compute SABR implied vols for multiple strikes. GPU-optimized.
+Compute SABR implied vols for multiple strikes.
 """
 function sabr_vols_batch(F, strikes::AbstractVector, T, α, β, ρ, ν)
     [_sabr_vol_gpu(F, K, T, α, β, ρ, ν) for K in strikes]
@@ -77,35 +77,21 @@ function PrecompiledSABRCalibrator(F::Float64, T::Float64, β::Float64,
     PrecompiledSABRCalibrator(F, T, β, strikes, market_vols, n, nothing, backend)
 end
 
+# Extension hooks - set by QuasarReactantExt when loaded
+const _REACTANT_COMPILE_GPU = Ref{Any}(nothing)
+const _REACTANT_CALL_GRAD = Ref{Any}(nothing)
+
 """
     compile_gpu!(cal::PrecompiledSABRCalibrator)
 
 Pre-compile gradient for Reactant. Call once before calibrate!().
+Requires Reactant to be loaded.
 """
 function compile_gpu!(cal::PrecompiledSABRCalibrator)
-    F, T, β = cal.F, cal.T, cal.β
-    strikes, market_vols, n = cal.strikes, cal.market_vols, cal.n
-
-    function loss(params)
-        α = abs(sum(params .* MASK3_1))
-        ρ = tanh(sum(params .* MASK3_2))
-        ν = exp(sum(params .* MASK3_3))
-        err = zero(eltype(params))
-        for i in 1:n
-            err += (_sabr_vol_gpu(F, strikes[i], T, α, β, ρ, ν) - market_vols[i])^2
-        end
-        err / n
+    if _REACTANT_COMPILE_GPU[] === nothing
+        error("compile_gpu! requires Reactant. Load it with: using Reactant")
     end
-
-    x_react = Reactant.ConcreteRArray([0.2, 0.0, log(0.3)])
-    grad_fn(x) = begin
-        dx = zero(x)
-        Enzyme.autodiff(Enzyme.Reverse, loss, Enzyme.Active, Enzyme.Duplicated(x, dx))
-        dx
-    end
-    cal.compiled_grad = Reactant.@compile grad_fn(x_react)
-    cal.backend = ReactantBackend()
-    cal
+    _REACTANT_COMPILE_GPU[](cal)
 end
 
 """
@@ -128,7 +114,7 @@ function calibrate!(cal::PrecompiledSABRCalibrator, x0::Vector{Float64};
 
     for iter in 1:max_iter
         g = if cal.compiled_grad !== nothing
-            Array(cal.compiled_grad(Reactant.ConcreteRArray(x)))
+            _call_compiled_grad(cal, x)
         else
             gradient(loss_fn, x; backend=cal.backend)
         end
@@ -143,6 +129,13 @@ function calibrate!(cal::PrecompiledSABRCalibrator, x0::Vector{Float64};
     end
 
     (x=x, loss=prev_loss, converged=false, iter=max_iter)
+end
+
+function _call_compiled_grad(cal::PrecompiledSABRCalibrator, x)
+    if _REACTANT_CALL_GRAD[] === nothing
+        error("Compiled gradient not available. Did you call compile_gpu!() with Reactant loaded?")
+    end
+    _REACTANT_CALL_GRAD[](cal, x)
 end
 
 """

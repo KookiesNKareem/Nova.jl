@@ -101,4 +101,45 @@ function Quasar.AD._jacobian(::ReactantBackend, f, x)
     return J
 end
 
+# ============================================================================
+# BatchPricing Pre-compiled Calibration
+# ============================================================================
+
+function _reactant_compile_gpu!(cal::Quasar.BatchPricing.PrecompiledSABRCalibrator)
+    F, T, β = cal.F, cal.T, cal.β
+    strikes, market_vols, n = cal.strikes, cal.market_vols, cal.n
+    MASK3_1, MASK3_2, MASK3_3 = Quasar.BatchPricing.MASK3_1, Quasar.BatchPricing.MASK3_2, Quasar.BatchPricing.MASK3_3
+
+    function loss(params)
+        α = abs(sum(params .* MASK3_1))
+        ρ = tanh(sum(params .* MASK3_2))
+        ν = exp(sum(params .* MASK3_3))
+        err = zero(eltype(params))
+        for i in 1:n
+            err += (Quasar.BatchPricing._sabr_vol_gpu(F, strikes[i], T, α, β, ρ, ν) - market_vols[i])^2
+        end
+        err / n
+    end
+
+    x_react = Reactant.ConcreteRArray([0.2, 0.0, log(0.3)])
+    grad_fn(x) = begin
+        dx = zero(x)
+        Enzyme.autodiff(Enzyme.Reverse, loss, Enzyme.Active, Enzyme.Duplicated(x, dx))
+        dx
+    end
+    cal.compiled_grad = Reactant.@compile grad_fn(x_react)
+    cal.backend = Quasar.AD.ReactantBackend()
+    cal
+end
+
+function _reactant_call_compiled_grad(cal::Quasar.BatchPricing.PrecompiledSABRCalibrator, x)
+    Array(cal.compiled_grad(Reactant.ConcreteRArray(x)))
+end
+
+# Register callbacks
+function __init__()
+    Quasar.BatchPricing._REACTANT_COMPILE_GPU[] = _reactant_compile_gpu!
+    Quasar.BatchPricing._REACTANT_CALL_GRAD[] = _reactant_call_compiled_grad
+end
+
 end # module

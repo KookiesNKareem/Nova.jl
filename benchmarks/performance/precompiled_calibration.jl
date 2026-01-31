@@ -1,5 +1,22 @@
 # Pre-compiled GPU Calibration Benchmark
-# Demonstrates speedup from pre-compiling gradients with Reactant
+#
+# Key finding: GPU is faster PER-CALIBRATION once compiled.
+#
+# Apple Silicon benchmark results (30 strikes, 200 iterations):
+#   CPU (ForwardDiff):     ~62 ms per calibration
+#   GPU (pre-compiled):    ~22 ms per calibration (2.9x faster)
+#   Compilation overhead:  ~18 seconds (one-time)
+#   Break-even:            ~440 calibrations
+#
+# When GPU wins:
+# - Production systems with many daily calibrations
+# - Batch processing (calibrate N underlyings)
+# - Re-running same calibration structure with different data
+#
+# When CPU wins:
+# - Interactive/ad-hoc calibration
+# - Single calibration runs
+# - Very small problems (< 10 strikes)
 
 using Quasar
 using Printf
