@@ -1,6 +1,7 @@
 using Test
 using Quasar
 using Dates
+using Statistics: std
 
 @testset "Scenario Analysis" begin
     @testset "Historical Stress Scenarios" begin
