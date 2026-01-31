@@ -18,7 +18,8 @@ using Statistics
 state = MarketState(
     prices = Dict("AAPL" => 150.0, "GOOGL" => 140.0, "MSFT" => 380.0),
     rates = Dict("USD" => 0.05),
-    volatilities = Dict("AAPL" => 0.25, "GOOGL" => 0.30, "MSFT" => 0.22)
+    volatilities = Dict("AAPL" => 0.25, "GOOGL" => 0.30, "MSFT" => 0.22),
+    timestamp = 0.0
 )
 
 # Create various options
@@ -52,6 +53,17 @@ for (i, (opt, pos)) in enumerate(zip(portfolio.instruments, portfolio.weights))
 end
 ```
 
+**Output:**
+```
+Portfolio Value: $506.33
+
+Position Breakdown:
+  1. AAPL 155 call: 10 × $9.60 = $96.00
+  2. AAPL 145 put: -5 × $4.94 = $-24.70
+  3. GOOGL 145 call: 20 × $11.28 = $225.60
+  4. MSFT 390 call: 15 × $13.96 = $209.43
+```
+
 ## Aggregate Greeks
 
 ```julia
@@ -64,6 +76,16 @@ println("  Gamma: $(round(greeks.gamma, digits=4))")
 println("  Vega:  $(round(greeks.vega, digits=2))")
 println("  Theta: $(round(greeks.theta, digits=2))")
 println("  Rho:   $(round(greeks.rho, digits=2))")
+```
+
+**Output:**
+```
+Portfolio Greeks:
+  Delta: 24.42
+  Gamma: 0.4925
+  Vega:  21.52
+  Theta: -1027.21
+  Rho:   17.22
 ```
 
 ### Greeks by Underlying
@@ -131,7 +153,8 @@ function simulate_portfolio_pnl(portfolio, state, n_scenarios;
                 "AAPL" => max(0.05, state.volatilities["AAPL"] * (1 + vol_shock)),
                 "GOOGL" => max(0.05, state.volatilities["GOOGL"] * (1 + vol_shock)),
                 "MSFT" => max(0.05, state.volatilities["MSFT"] * (1 + vol_shock)),
-            )
+            ),
+            timestamp = 0.0
         )
 
         pnls[i] = value(portfolio, shocked_state) - base_value
@@ -209,7 +232,8 @@ for (name, spot_mult, vol_mult) in scenarios
     stressed_state = MarketState(
         prices = Dict(k => state.prices[k] * spot_mult[k] for k in keys(state.prices)),
         rates = Dict("USD" => 0.05),
-        volatilities = Dict(k => state.volatilities[k] * vol_mult for k in keys(state.volatilities))
+        volatilities = Dict(k => state.volatilities[k] * vol_mult for k in keys(state.volatilities)),
+        timestamp = 0.0
     )
 
     stressed_value = value(portfolio, stressed_state)
@@ -296,7 +320,8 @@ end
 new_state = MarketState(
     prices = Dict("AAPL" => 153.0, "GOOGL" => 142.0, "MSFT" => 385.0),
     rates = Dict("USD" => 0.05),
-    volatilities = Dict("AAPL" => 0.27, "GOOGL" => 0.32, "MSFT" => 0.24)
+    volatilities = Dict("AAPL" => 0.27, "GOOGL" => 0.32, "MSFT" => 0.24),
+    timestamp = 0.0
 )
 
 attr = pnl_attribution(portfolio, state, new_state)

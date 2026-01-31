@@ -37,6 +37,13 @@ parity_rhs = S - K * exp(-r * T)
 println("Put-call parity check: $(round(parity_lhs, digits=6)) ≈ $(round(parity_rhs, digits=6))")
 ```
 
+**Output:**
+```
+Call price: $7.9152
+Put price: $9.0882
+Put-call parity check: -1.173036 ≈ -1.173036
+```
+
 ### Using Instruments and Market State
 
 For portfolio management, use the object-oriented approach:
@@ -46,7 +53,8 @@ For portfolio management, use the object-oriented approach:
 state = MarketState(
     prices = Dict("AAPL" => 150.0),
     rates = Dict("USD" => 0.05),
-    volatilities = Dict("AAPL" => 0.20)
+    volatilities = Dict("AAPL" => 0.20),
+    timestamp = 0.0
 )
 
 # Create option instruments
@@ -75,6 +83,15 @@ println("Theta: $(round(greeks.theta, digits=4))")   # Time decay (per day)
 println("Rho: $(round(greeks.rho, digits=4))")       # Sensitivity to rate (per 1%)
 ```
 
+**Output:**
+```
+Delta: 0.5062
+Gamma: 0.0188
+Vega: 0.4231
+Theta: -11.8628
+Rho: 0.3401
+```
+
 ### Second-Order Greeks
 
 For advanced risk management, use second-order sensitivities:
@@ -83,6 +100,13 @@ For advanced risk management, use second-order sensitivities:
 println("Vanna: $(round(greeks.vanna, digits=4))")   # ∂Delta/∂σ
 println("Volga: $(round(greeks.volga, digits=4))")   # ∂Vega/∂σ
 println("Charm: $(round(greeks.charm, digits=4))")   # ∂Delta/∂T
+```
+
+**Output:**
+```
+Vanna: 0.2509
+Volga: -0.0042
+Charm: -0.1912
 ```
 
 ### Delta Hedging Example
@@ -106,7 +130,8 @@ S_new = 151.0
 state_new = MarketState(
     prices = Dict("AAPL" => S_new),
     rates = Dict("USD" => 0.05),
-    volatilities = Dict("AAPL" => 0.20)
+    volatilities = Dict("AAPL" => 0.20),
+    timestamp = 0.0
 )
 
 # P&L breakdown

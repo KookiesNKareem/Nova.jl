@@ -40,6 +40,15 @@ println("  Error: $(round(abs(result.price - bs_price), digits=4))")
 println("  95% CI: [\$$(round(result.ci_lower, digits=4)), \$$(round(result.ci_upper, digits=4))]")
 ```
 
+**Output:**
+```
+European Call (K=100):
+  Monte Carlo: $10.4477 ± 0.0329
+  Black-Scholes: $10.4506
+  Error: 0.0029
+  95% CI: [$10.3832, $10.5122]
+```
+
 ## Asian Options
 
 Asian options depend on the average price over the life of the option:
@@ -67,6 +76,16 @@ println("  Put:  \$$(round(result_put.price, digits=4)) ± $(round(result_put.st
 eu_call = mc_price(S0, T, EuropeanCall(100.0), dynamics; npaths=100000)
 println("\n  Asian call is $(round((1 - result_call.price/eu_call.price)*100, digits=1))% cheaper than European")
 println("  (Averaging reduces volatility exposure)")
+```
+
+**Output:**
+```
+Asian Options (K=100, daily averaging):
+  Call: $5.7374 ± 0.0246
+  Put:  $3.2851 ± 0.0171
+
+  Asian call is 45.1% cheaper than European
+  (Averaging reduces volatility exposure)
 ```
 
 ### Averaging Frequency Impact
@@ -104,6 +123,14 @@ println("  Price: \$$(round(result.price, digits=4)) ± $(round(result.stderr, d
 vanilla = mc_price(S0, T, EuropeanCall(K), dynamics; npaths=100000)
 println("  European Call: \$$(round(vanilla.price, digits=4))")
 println("  Knockout discount: $(round((1 - result.price/vanilla.price)*100, digits=1))%")
+```
+
+**Output:**
+```
+Up-and-Out Call (K=100, B=130):
+  Price: $3.5972 ± 0.0289
+  European Call: $10.4506
+  Knockout discount: 65.6%
 ```
 
 ### Down-and-Out Put
@@ -159,6 +186,14 @@ eu_put = mc_price(S0, T, EuropeanPut(100.0), dynamics; npaths=50000)
 premium = result.price - eu_put.price
 println("  European Put: \$$(round(eu_put.price, digits=4))")
 println("  Early Exercise Premium: \$$(round(premium, digits=4)) ($(round(premium/eu_put.price*100, digits=1))%)")
+```
+
+**Output:**
+```
+American Put (K=100):
+  Price: $6.0647
+  European Put: $5.5873
+  Early Exercise Premium: $0.4774 (8.5%)
 ```
 
 ### American vs European by Moneyness

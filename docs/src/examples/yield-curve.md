@@ -97,6 +97,19 @@ for T in [0.25, 0.5, 1.0, 2.0, 5.0, 10.0]
 end
 ```
 
+**Output:**
+```
+Bootstrapped Curve:
+Maturity | Zero Rate | Discount
+-----------------------------------
+0.25Y     | 4.771%    | 0.988142
+0.5Y      | 4.841%    | 0.976086
+1.0Y      | 4.940%    | 0.951803
+2.0Y      | 5.175%    | 0.901684
+5.0Y      | 5.699%    | 0.752048
+10.0Y     | 6.201%    | 0.537872
+```
+
 ### Interpolation Methods
 
 Different interpolation affects the curve shape:
@@ -179,18 +192,26 @@ println("  Yield: $(round(-log(pv/100)/5 * 100, digits=3))%")
 # 5-year bond, 6% coupon, semi-annual
 bond = FixedRateBond(5.0, 0.06, 2)
 
-# Price at a yield
-pv_yield = price(bond, 0.055)  # Price at 5.5% yield
+# Price at a yield (use Quasar.InterestRates.price to avoid conflict)
+pv_yield = Quasar.InterestRates.price(bond, 0.055)  # Price at 5.5% yield
 println("\n5Y 6% Coupon Bond:")
 println("  Price at 5.5% yield: \$$(round(pv_yield, digits=4))")
 
 # Price using curve
-pv_curve = price(bond, curve)
+pv_curve = Quasar.InterestRates.price(bond, curve)
 println("  Price using market curve: \$$(round(pv_curve, digits=4))")
 
 # Yield to maturity
 ytm = yield_to_maturity(bond, pv_curve)
 println("  YTM: $(round(ytm * 100, digits=3))%")
+```
+
+**Output:**
+```
+5Y 6% Coupon Bond:
+  Price at 5.5% yield: $101.8267
+  Price using market curve: $101.2455
+  YTM: 5.673%
 ```
 
 ### Bond Analytics
@@ -208,7 +229,18 @@ println("  Macaulay Duration: $(round(mac_dur, digits=3)) years")
 println("  Modified Duration: $(round(mod_dur, digits=3))")
 println("  Convexity: $(round(convex, digits=3))")
 println("  DV01: \$$(round(dv, digits=4)) per bp")
+```
 
+**Output:**
+```
+Bond Analytics at 5.5% yield:
+  Macaulay Duration: 4.400 years
+  Modified Duration: 4.170
+  Convexity: 20.937
+  DV01: $0.0425 per bp
+```
+
+```julia
 # Duration-based price approximation
 Δy = 0.01  # 100bp rate increase
 price_actual = price(bond, y + Δy)
