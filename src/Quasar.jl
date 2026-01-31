@@ -43,6 +43,26 @@ export VaR, CVaR, Volatility, Sharpe, MaxDrawdown, compute
 include("Optimization.jl")
 using .Optimization
 export optimize, MeanVariance, SharpeMaximizer, CVaRObjective, KellyCriterion, OptimizationResult
+export AbstractOptimizationObjective, AbstractConstraint, AbstractSolver, AbstractCovarianceEstimator
+export FullInvestmentConstraint, LongOnlyConstraint, BoxConstraint
+export GroupConstraint, TurnoverConstraint, CardinalityConstraint
+export standard_constraints, check_constraint_violation, check_all_constraints
+export QPSolver, LBFGSSolver, ProjectedGradientSolver
+export project_simplex, project_constraints, solve_qp, solve_min_variance_qp
+export solve_lbfgs, solve_projected_gradient
+export MinimumVariance, RiskParity, MaximumDiversification, BlackLitterman
+export compute_risk_contributions, compute_fractional_risk_contributions
+export compute_marginal_risk, compute_component_risk, compute_beta
+export compute_tracking_error, compute_active_risk_contributions
+export PortfolioAnalytics, analyze_portfolio
+export risk_parity_objective, diversification_ratio
+export bl_equilibrium_returns, bl_posterior_returns, bl_posterior_covariance
+export EfficientFrontier, compute_efficient_frontier
+export get_tangency_portfolio, get_min_variance_portfolio, interpolate_frontier
+export SampleCovariance, LedoitWolfShrinkage, ExponentialWeighted
+export estimate_covariance, estimate_expected_returns, estimate_parameters
+export PortfolioSpec
+export min_variance_portfolio, max_sharpe_portfolio, risk_parity_portfolio, target_return_portfolio
 
 # Stochastic volatility models (SABR, Heston)
 include("Models.jl")

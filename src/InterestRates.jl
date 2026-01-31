@@ -95,20 +95,25 @@ year_fraction(Date(2024,1,1), Date(2024,7,1), Thirty360())  # = 0.5
 function year_fraction end
 
 # For simple numeric time (already in years), just return the difference
-year_fraction(t1::Real, t2::Real, ::DayCountConvention) = Float64(t2 - t1)
+# These take priority over the date-based implementations when inputs are numbers
+year_fraction(t1::Real, t2::Real, ::ACT360) = Float64(t2 - t1)
+year_fraction(t1::Real, t2::Real, ::ACT365) = Float64(t2 - t1)
+year_fraction(t1::Real, t2::Real, ::Thirty360) = Float64(t2 - t1)
+year_fraction(t1::Real, t2::Real, ::ACTACT) = Float64(t2 - t1)
 
 # Date-based implementations (requires Dates to be available)
-function year_fraction(d1, d2, ::ACT360)
+# These are for actual Date objects, not numeric types
+function _year_fraction_act360(d1, d2)
     days = _day_count(d1, d2)
     days / 360.0
 end
 
-function year_fraction(d1, d2, ::ACT365)
+function _year_fraction_act365(d1, d2)
     days = _day_count(d1, d2)
     days / 365.0
 end
 
-function year_fraction(d1, d2, ::Thirty360)
+function _year_fraction_30360(d1, d2)
     y1, m1, day1 = _year_month_day(d1)
     y2, m2, day2 = _year_month_day(d2)
 
@@ -121,7 +126,7 @@ function year_fraction(d1, d2, ::Thirty360)
     (360 * (y2 - y1) + 30 * (m2 - m1) + (day2 - day1)) / 360.0
 end
 
-function year_fraction(d1, d2, ::ACTACT)
+function _year_fraction_actact(d1, d2)
     # Simplified ISDA implementation: actual days / average year length
     days = _day_count(d1, d2)
     y1, _, _ = _year_month_day(d1)
@@ -190,9 +195,61 @@ end
 # Interpolation Methods
 # ============================================================================
 
+"""
+    InterpolationMethod
+
+Abstract base type for interpolation methods used in yield curve construction.
+
+Subtypes: [`LinearInterp`](@ref), [`LogLinearInterp`](@ref), [`CubicSplineInterp`](@ref)
+"""
 abstract type InterpolationMethod end
+
+"""
+    LinearInterp <: InterpolationMethod
+
+Linear interpolation between data points.
+
+Simple and stable, but can produce kinks in forward rates.
+Best for zero rate curves where smoothness is less critical.
+
+# Example
+```julia
+curve = ZeroCurve(times, rates; interp=LinearInterp())
+```
+"""
 struct LinearInterp <: InterpolationMethod end
+
+"""
+    LogLinearInterp <: InterpolationMethod
+
+Log-linear interpolation (linear in log-space).
+
+The default for discount curves. Ensures discount factors remain positive
+and produces smoother forward rates than linear interpolation.
+
+# Example
+```julia
+curve = DiscountCurve(times, dfs; interp=LogLinearInterp())
+```
+"""
 struct LogLinearInterp <: InterpolationMethod end
+
+"""
+    CubicSplineInterp <: InterpolationMethod
+
+Natural cubic spline interpolation.
+
+Produces the smoothest curves with continuous first and second derivatives.
+Best for applications requiring smooth forward rates (e.g., HJM models).
+
+# Fields
+- `coeffs::Vector{NTuple{4,Float64}}` - Spline coefficients (a, b, c, d) per segment
+
+# Example
+```julia
+curve = ZeroCurve(times, rates; interp=CubicSplineInterp())
+```
+"""
 struct CubicSplineInterp <: InterpolationMethod
     coeffs::Vector{NTuple{4,Float64}}  # (a, b, c, d) for each segment
 end
@@ -276,12 +333,56 @@ end
 # Yield Curves
 # ============================================================================
 
+"""
+    RateCurve
+
+Abstract base type for interest rate curves.
+
+All rate curves support the following operations:
+- `discount(curve, T)` - Get discount factor to time T
+- `zero_rate(curve, T)` - Get zero rate to time T
+- `forward_rate(curve, T1, T2)` - Get forward rate between T1 and T2
+- `instantaneous_forward(curve, T)` - Get instantaneous forward rate at T
+
+# Subtypes
+- [`DiscountCurve`](@ref) - Curve of discount factors
+- [`ZeroCurve`](@ref) - Curve of zero rates
+- [`ForwardCurve`](@ref) - Curve of instantaneous forward rates
+- [`NelsonSiegelCurve`](@ref) - Parametric Nelson-Siegel curve
+- [`SvenssonCurve`](@ref) - Parametric Svensson curve
+
+# Example
+```julia
+# Create a flat 5% curve
+curve = ZeroCurve(0.05)
+
+# Get discount factor and zero rate at 2 years
+df = discount(curve, 2.0)      # ≈ 0.9048
+r = zero_rate(curve, 2.0)      # = 0.05
+```
+"""
 abstract type RateCurve end
 
 """
     DiscountCurve(times, discount_factors; interp=LogLinearInterp())
 
-Curve of discount factors. Interpolates in log-space by default.
+Curve of discount factors P(0,T). Interpolates in log-space by default
+to ensure discount factors remain positive.
+
+# Arguments
+- `times::Vector{Float64}` - Maturities in years
+- `discount_factors::Vector{Float64}` - Discount factors (must be positive)
+- `interp::InterpolationMethod` - Interpolation method (default: LogLinearInterp)
+
+# Constructors
+- `DiscountCurve(times, dfs)` - From vectors
+- `DiscountCurve(rate)` - Flat curve at given rate
+
+# Example
+```julia
+curve = DiscountCurve([0.0, 1.0, 5.0], [1.0, 0.95, 0.78])
+df = discount(curve, 2.5)  # Interpolated discount factor
+```
 """
 struct DiscountCurve <: RateCurve
     times::Vector{Float64}
@@ -776,12 +877,37 @@ SwapRate(mat, rate) = SwapRate(mat, rate, 2)  # semi-annual default
 """
     bootstrap(instruments; interp=LogLinearInterp()) -> DiscountCurve
 
-Bootstrap a discount curve from market instruments.
-Instruments should be sorted by maturity.
+Bootstrap a discount curve from market instruments using sequential stripping.
+
+The function iteratively solves for discount factors that reprice each
+instrument, starting from the shortest maturity. Instruments should be
+provided in order of increasing maturity.
+
+# Arguments
+- `instruments::Vector{<:MarketInstrument}` - Market quotes (sorted by maturity)
+- `interp::InterpolationMethod` - Interpolation for intermediate points
+
+# Supported Instruments
+- [`DepositRate`](@ref) - Money market deposits (short end)
+- [`FuturesRate`](@ref) - Interest rate futures (middle)
+- [`SwapRate`](@ref) - Par swap rates (long end)
+
+# Returns
+A [`DiscountCurve`](@ref) that reprices all input instruments.
+
+# Example
+```julia
+instruments = [
+    DepositRate(0.25, 0.02),   # 3-month deposit at 2%
+    DepositRate(0.5, 0.022),   # 6-month deposit at 2.2%
+    SwapRate(2.0, 0.028),      # 2-year swap at 2.8%
+    SwapRate(5.0, 0.032),      # 5-year swap at 3.2%
+]
+curve = bootstrap(instruments)
+```
+
+See also: [`DepositRate`](@ref), [`FuturesRate`](@ref), [`SwapRate`](@ref)
 """
-# TODO: Handle inconsistent/arbitrage-free input validation
-# TODO: Add Jacobian output for risk sensitivities
-# TODO: Support simultaneous solve (vs sequential)
 function bootstrap(instruments::Vector{<:MarketInstrument}; interp::InterpolationMethod=LogLinearInterp())
     times = Float64[0.0]
     dfs = Float64[1.0]
@@ -834,12 +960,50 @@ end
 # Bonds
 # ============================================================================
 
+"""
+    Bond
+
+Abstract base type for fixed income instruments.
+
+All bonds support the following operations:
+- `price(bond, curve)` - Present value using a discount curve
+- `price(bond, yield)` - Present value at a given yield
+- `yield_to_maturity(bond, price)` - Solve for yield given price
+- `duration(bond, yield)` - Macaulay duration
+- `modified_duration(bond, yield)` - Modified duration
+- `convexity(bond, yield)` - Convexity
+- `dv01(bond, yield)` - Dollar value of 1 basis point
+
+# Subtypes
+- [`ZeroCouponBond`](@ref) - Zero-coupon (discount) bond
+- [`FixedRateBond`](@ref) - Fixed-rate coupon bond
+- [`FloatingRateBond`](@ref) - Floating-rate bond
+
+# Example
+```julia
+bond = FixedRateBond(5.0, 0.04, 2)  # 5-year, 4% semi-annual
+curve = ZeroCurve(0.05)
+pv = price(bond, curve)
+ytm = yield_to_maturity(bond, 95.0)
+dur = duration(bond, ytm)
+```
+"""
 abstract type Bond end
 
 """
     ZeroCouponBond(maturity, face_value=100.0)
 
 Zero-coupon bond paying face value at maturity.
+
+# Arguments
+- `maturity::Float64` - Time to maturity in years
+- `face_value::Float64` - Face (par) value (default: 100.0)
+
+# Example
+```julia
+zcb = ZeroCouponBond(5.0)  # 5-year zero
+price(zcb, 0.05)  # ≈ 78.12 at 5% yield
+```
 """
 struct ZeroCouponBond <: Bond
     maturity::Float64
