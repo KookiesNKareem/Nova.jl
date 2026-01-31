@@ -126,4 +126,10 @@ export execute
 export MarketSnapshot, AbstractDriver, HistoricalDriver
 export SimulationResult, simulate
 
+# Backtesting
+include("Backtesting.jl")
+using .Backtesting
+export AbstractStrategy, generate_orders, should_rebalance
+export BuyAndHoldStrategy, RebalancingStrategy
+
 end
