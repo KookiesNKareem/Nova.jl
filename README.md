@@ -56,9 +56,8 @@ greeks.gamma  # Delta sensitivity to underlying
 greeks.vega   # Price sensitivity to volatility
 greeks.theta  # Price sensitivity to time
 greeks.rho    # Price sensitivity to interest rate
-
-# Compare with analytical Greeks (for validation)
-analytical = analytical_greeks(option)
+# Uses analytical Black-Scholes formulas (exact, fast)
+# AD fallback available for exotic options without closed-form solutions
 ```
 
 ### Portfolio Management
