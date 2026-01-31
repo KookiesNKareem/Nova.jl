@@ -1,34 +1,6 @@
----
-layout: home
+# Quasar.jl
 
-hero:
-  name: Quasar.jl
-  text: Differentiable Quantitative Finance
-  tagline: High-performance derivatives pricing with automatic differentiation
-  actions:
-    - theme: brand
-      text: Get Started
-      link: /getting-started/installation
-    - theme: alt
-      text: View on GitHub
-      link: https://github.com/KookiesNKareem/Quasar.jl
-
-features:
-  - icon: 🔄
-    title: Differentiable by Default
-    details: Every computation flows through a unified AD system. Gradients are first-class outputs, not afterthoughts.
-  - icon: 🚀
-    title: Multi-Backend AD
-    details: Same code runs on CPU (ForwardDiff) or GPU (Enzyme/Reactant). Write once, deploy anywhere.
-  - icon: 📊
-    title: Production Ready
-    details: Pure Julia reference implementations for debugging, optimized backends for production workloads.
-  - icon: 🧩
-    title: Composable Design
-    details: Small, focused types that combine naturally. Build complex strategies from simple primitives.
----
-
-# What is Quasar.jl?
+*Differentiable Quantitative Finance for Julia*
 
 Quasar is a quantitative finance library for Julia that puts automatic differentiation at the center of everything. Whether you're pricing exotic derivatives, computing Greeks, calibrating models, or optimizing portfolios, Quasar provides a unified, differentiable API.
 
@@ -82,3 +54,18 @@ with_backend(ReactantBackend()) do
     optimize(objective, x0)
 end
 ```
+
+## Getting Started
+
+- [Installation](@ref) - How to install Quasar
+- [Quick Start](@ref) - Get up and running quickly
+
+## Manual
+
+- [AD Backends](@ref) - Guide to automatic differentiation backends
+- [Monte Carlo](@ref) - Monte Carlo simulation engine
+- [Portfolio Optimization](@ref) - Portfolio optimization with AD
+
+## API Reference
+
+- [API Reference](@ref) - Complete API documentation

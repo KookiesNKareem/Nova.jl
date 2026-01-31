@@ -49,38 +49,20 @@ jobs:
       actions: write
       contents: write
       statuses: write
-      pages: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: docs/package-lock.json
       - uses: julia-actions/cache@v2
-      - name: Install npm dependencies
-        run: npm ci
-        working-directory: docs
-      - name: Install Julia dependencies
+      - name: Install dependencies
         run: |
           julia --project=docs -e '
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()'
-      - name: Build documentation
+      - name: Build and deploy documentation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-          NODE_OPTIONS: --max-old-space-size=4096
         run: julia --project=docs docs/make.jl
-      - name: Deploy to GitHub Pages
-        if: github.event_name != 'pull_request'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/build/.vitepress/dist
-          force_orphan: true
