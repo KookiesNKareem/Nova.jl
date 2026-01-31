@@ -78,9 +78,13 @@ jobs:
       - name: Build VitePress site
         working-directory: docs
         run: npm run docs:build
-      - name: Create root redirect
+      - name: Fix folder structure
         run: |
-          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; URL=./1/"><link rel="canonical" href="./1/"></head><body><p>Redirecting to <a href="./1/">documentation</a>...</p></body></html>' > docs/build/index.html
+          cd docs/build
+          # Rename version folder to match base URL path
+          if [ -d "1" ]; then mv 1 dev; fi
+          # Create root redirect
+          echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; URL=./dev/"><link rel="canonical" href="./dev/"></head><body><p>Redirecting to <a href="./dev/">documentation</a>...</p></body></html>' > index.html
       - name: Deploy to GitHub Pages
         if: github.event_name != 'pull_request'
         uses: peaceiris/actions-gh-pages@v4

@@ -11,6 +11,7 @@ makedocs(;
     format=DocumenterVitepress.MarkdownVitepress(
         repo="https://github.com/KookiesNKareem/Quasar.jl",
         devbranch="main",
+        devurl="dev",
         build_vitepress=false,  # Don't use JLL Node.js - we'll build manually
     ),
     pages=[
@@ -28,5 +29,3 @@ makedocs(;
     ],
     warnonly=true,
 )
-
-# Note: deploydocs is not used - we deploy via CI workflow with peaceiris/actions-gh-pages
