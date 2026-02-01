@@ -194,6 +194,6 @@ export AbstractVisualization, VisualizationSpec, LinkedContext
 export visualize, set_theme!, get_theme, available_views
 export LIGHT_THEME, DARK_THEME, COLORS
 export render
-export Row, Dashboard, serve
+export Row, Dashboard, serve, save
 
 end

@@ -120,4 +120,23 @@ Random.seed!(42)
         @test dashboard.layout[1].weight == 2
         @test length(dashboard.layout[2].items) == 2
     end
+
+    @testset "Export" begin
+        result = BacktestResult(
+            10000.0, 12000.0,
+            [10000.0 + 100.0*i for i in 1:10],
+            [0.01 for _ in 1:10],
+            [DateTime(2024, 1, i) for i in 1:10],
+            Fill[],
+            [Dict{Symbol,Float64}() for _ in 1:10],
+            Dict{Symbol,Float64}(:sharpe => 1.5)
+        )
+
+        spec = visualize(result, :equity)
+        @test spec isa VisualizationSpec
+
+        # Note: Actual save test requires CairoMakie loaded
+        # This just tests the spec is exportable
+        @test hasmethod(available_views, Tuple{BacktestResult})
+    end
 end

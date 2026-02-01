@@ -7,6 +7,7 @@ using QuantNova.Optimization: OptimizationResult, EfficientFrontier
 
 using Makie
 using Makie: Observable, on, events
+using Makie: save as makie_save
 using Dates
 using Statistics: mean, std
 
@@ -963,6 +964,25 @@ function setup_zoom_pan!(ax, zoom_obs::Observable)
             zoom_obs[] = zoom_obs[] * factor
         end
     end
+end
+
+# ============================================================================
+# Static Export Support
+# ============================================================================
+
+"""
+    save(filename::String, spec::VisualizationSpec; kwargs...)
+
+Save visualization to file using CairoMakie for static output.
+"""
+function QuantNova.Visualization.save(filename::String, spec::VisualizationSpec; kwargs...)
+    fig = QuantNova.Visualization.render(spec)
+
+    # Merge size from options if provided
+    size = get(spec.options, :size, (800, 600))
+
+    makie_save(filename, fig; size=size, kwargs...)
+    println("Saved to $filename")
 end
 
 # ============================================================================

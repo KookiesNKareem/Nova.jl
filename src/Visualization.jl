@@ -235,6 +235,19 @@ Requires WGLMakie and Bonito to be loaded.
 """
 function serve end
 
-export Row, Dashboard, serve
+"""
+    save(filename::String, spec::VisualizationSpec; kwargs...)
+
+Export a visualization to a file. Supported formats: PNG, PDF, SVG.
+
+# Examples
+```julia
+save("report.png", visualize(result))
+save("report.pdf", visualize(result); size=(800, 600))
+```
+"""
+function save end
+
+export Row, Dashboard, serve, save
 
 end # module
