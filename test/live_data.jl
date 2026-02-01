@@ -282,6 +282,54 @@ const RUN_LIVE_TESTS = get(ENV, "QUANTNOVA_TEST_LIVE_DATA", "0") == "1"
             @test haskey(metrics, :tail_ratio)
         end
 
+        @testset "Custom Strategies" begin
+            histories = fetch_multiple(["AAPL", "MSFT", "GOOGL"], range="1y")
+            timestamps, prices = to_backtest_format(histories)
+            symbols = [:AAPL, :MSFT, :GOOGL]
+
+            @testset "MomentumStrategy" begin
+                strategy = MomentumStrategy(symbols, lookback=60, top_n=2, rebalance_frequency=:monthly)
+                result = backtest(strategy, timestamps, prices, initial_cash=100_000.0)
+
+                @test result isa BacktestResult
+                @test result.final_value > 0
+                @test length(result.trades) > 0
+            end
+
+            @testset "MeanReversionStrategy" begin
+                strategy = MeanReversionStrategy(symbols, lookback=20, entry_threshold=1.5)
+                result = backtest(strategy, timestamps, prices, initial_cash=100_000.0)
+
+                @test result isa BacktestResult
+                @test result.final_value > 0
+            end
+
+            @testset "SignalStrategy" begin
+                # Custom equal-weight signal
+                function my_signal(ctx, state)
+                    n = length(ctx.symbols)
+                    return Dict(s => 1.0/n for s in ctx.symbols)
+                end
+
+                strategy = SignalStrategy(my_signal, symbols, rebalance_frequency=:monthly)
+                result = backtest(strategy, timestamps, prices, initial_cash=100_000.0)
+
+                @test result isa BacktestResult
+                @test result.final_value > 0
+            end
+
+            @testset "CompositeStrategy" begin
+                mom = MomentumStrategy(symbols, lookback=60)
+                mr = MeanReversionStrategy(symbols, lookback=20)
+
+                strategy = CompositeStrategy([mom, mr], [0.5, 0.5])
+                result = backtest(strategy, timestamps, prices, initial_cash=100_000.0)
+
+                @test result isa BacktestResult
+                @test result.final_value > 0
+            end
+        end
+
 end  # testset
 
 # Note: To run this file directly with live tests enabled:

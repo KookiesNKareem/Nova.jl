@@ -5,17 +5,10 @@ using ..Models: SABRParams, sabr_implied_vol, sabr_price, HestonParams, heston_p
 using LinearAlgebra: norm
 using Statistics: mean
 
-# ============================================================================
-# GPU-Compatible Parameter Extraction
-# ============================================================================
-
 # TODO: Investigate if Julia 1.12+ destructuring works with Reactant traced arrays
-# FIXME: Heston GPU calibration not supported - Reactant doesn't handle complex AD
-#        The Heston characteristic function uses complex numbers which crash
-#        Reactant's MLIR compilation. Consider implementing real-valued Heston
-#        pricing (Carr-Madan with cosine expansion) for GPU support.
+# FIXME: Heston GPU calibration not supported - Reactant doesn't handle complex AD.
+#        Consider implementing real-valued Heston pricing (Carr-Madan with cosine expansion).
 
-# Masks for extracting parameters without scalar indexing (required for Reactant/GPU)
 const MASK_3_1 = [1.0, 0.0, 0.0]
 const MASK_3_2 = [0.0, 1.0, 0.0]
 const MASK_3_3 = [0.0, 0.0, 1.0]
@@ -33,10 +26,6 @@ Extract a single parameter from array using dot product with mask.
 This avoids scalar indexing which is incompatible with GPU backends (Reactant).
 """
 @inline _extract_param(params, mask) = sum(params .* mask)
-
-# ============================================================================
-# Vectorized SABR Implied Vol (for GPU calibration)
-# ============================================================================
 
 """
     _sabr_implied_vol_scalar(F, K, T, α, β, ρ, ν)
@@ -93,10 +82,6 @@ function _sabr_implied_vol_scalar(F, K, T, α, β, ρ, ν)
     return A * x_z * (1 + (C1 + C2 + C3) * T)
 end
 
-# ============================================================================
-# Market Data Types
-# ============================================================================
-
 """
     OptionQuote
 
@@ -135,10 +120,6 @@ struct SmileData
     quotes::Vector{OptionQuote}
 end
 
-# ============================================================================
-# Calibration Results
-# ============================================================================
-
 """
     CalibrationResult{P}
 
@@ -158,10 +139,6 @@ struct CalibrationResult{P}
     iterations::Int
     rmse::Float64
 end
-
-# ============================================================================
-# SABR Calibration
-# ============================================================================
 
 # TODO: Add support for calibrating beta (currently fixed)
 # TODO: Add quote weighting by liquidity/bid-ask spread
@@ -326,10 +303,6 @@ function calibrate_sabr(smile::SmileData;
 
     return CalibrationResult(final_params, final_loss, converged, iter, rmse)
 end
-
-# ============================================================================
-# Heston Calibration
-# ============================================================================
 
 # TODO: Add Feller condition constraint (2κθ > σ²) during optimization
 # TODO: Support term-structure of Heston parameters (different kappa per expiry)
@@ -532,10 +505,6 @@ function calibrate_heston(surface::VolSurface;
 
     return CalibrationResult(final_params, final_loss, converged, iter, rmse)
 end
-
-# ============================================================================
-# Exports
-# ============================================================================
 
 export OptionQuote, SmileData, CalibrationResult, calibrate_sabr
 export VolSurface, calibrate_heston

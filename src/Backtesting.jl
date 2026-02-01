@@ -1,9 +1,5 @@
 module Backtesting
 
-# TODO: Add MomentumStrategy for trend-following
-# TODO: Add MeanReversionStrategy for contrarian trades
-# TODO: Add CompositeStrategy for combining multiple strategies
-
 using Dates
 using Statistics: mean, std
 using ..Simulation: SimulationState, Order, Fill, portfolio_value
@@ -167,6 +163,606 @@ function generate_orders(strategy::RebalancingStrategy, state::SimulationState)
     total_value = portfolio_value(state)
 
     for (sym, target_weight) in strategy.target_weights
+        haskey(state.prices, sym) || continue
+
+        target_value = total_value * target_weight
+        current_value = get(state.positions, sym, 0.0) * state.prices[sym]
+        diff_value = target_value - current_value
+
+        if abs(diff_value) > 1.0
+            qty = diff_value / state.prices[sym]
+            side = qty > 0 ? :buy : :sell
+            push!(orders, Order(sym, abs(qty), side))
+        end
+    end
+
+    strategy.last_rebalance[] = state.timestamp
+    return orders
+end
+
+# ============================================================================
+# Strategy Context (Price History for Custom Strategies)
+# ============================================================================
+
+"""
+    StrategyContext
+
+Tracks price history and provides lookback data for strategies.
+This is passed to signal functions to compute indicators.
+"""
+mutable struct StrategyContext
+    symbols::Vector{Symbol}
+    price_history::Dict{Symbol, Vector{Float64}}
+    return_history::Dict{Symbol, Vector{Float64}}
+    timestamps::Vector{DateTime}
+    max_lookback::Int
+
+    function StrategyContext(symbols::Vector{Symbol}; max_lookback::Int=252)
+        price_history = Dict(s => Float64[] for s in symbols)
+        return_history = Dict(s => Float64[] for s in symbols)
+        new(symbols, price_history, return_history, DateTime[], max_lookback)
+    end
+end
+
+function update!(ctx::StrategyContext, state::SimulationState)
+    push!(ctx.timestamps, state.timestamp)
+
+    for sym in ctx.symbols
+        price = get(state.prices, sym, NaN)
+        push!(ctx.price_history[sym], price)
+
+        # Compute return
+        if length(ctx.price_history[sym]) > 1
+            prev = ctx.price_history[sym][end-1]
+            ret = (price - prev) / prev
+            push!(ctx.return_history[sym], ret)
+        end
+
+        # Trim to max lookback
+        if length(ctx.price_history[sym]) > ctx.max_lookback
+            popfirst!(ctx.price_history[sym])
+        end
+        if length(ctx.return_history[sym]) > ctx.max_lookback
+            popfirst!(ctx.return_history[sym])
+        end
+    end
+
+    if length(ctx.timestamps) > ctx.max_lookback
+        popfirst!(ctx.timestamps)
+    end
+end
+
+"""
+    get_returns(ctx::StrategyContext, sym::Symbol, lookback::Int) -> Vector{Float64}
+
+Get the last `lookback` returns for a symbol.
+"""
+function get_returns(ctx::StrategyContext, sym::Symbol, lookback::Int)
+    rets = ctx.return_history[sym]
+    n = min(lookback, length(rets))
+    return rets[end-n+1:end]
+end
+
+"""
+    get_prices(ctx::StrategyContext, sym::Symbol, lookback::Int) -> Vector{Float64}
+
+Get the last `lookback` prices for a symbol.
+"""
+function get_prices(ctx::StrategyContext, sym::Symbol, lookback::Int)
+    prices = ctx.price_history[sym]
+    n = min(lookback, length(prices))
+    return prices[end-n+1:end]
+end
+
+# ============================================================================
+# Signal-Based Strategy (Custom)
+# ============================================================================
+
+"""
+    SignalStrategy <: AbstractStrategy
+
+A flexible strategy where users provide a signal function that computes target weights.
+
+The signal function receives the StrategyContext and current SimulationState,
+and should return a Dict{Symbol,Float64} of target weights.
+
+# Fields
+- `signal_fn` - Function `(ctx::StrategyContext, state::SimulationState) -> Dict{Symbol,Float64}`
+- `symbols::Vector{Symbol}` - Assets to trade
+- `rebalance_frequency::Symbol` - :daily, :weekly, or :monthly
+- `min_weight::Float64` - Minimum weight per asset (default: 0.0)
+- `max_weight::Float64` - Maximum weight per asset (default: 1.0)
+- `lookback::Int` - Price history lookback (default: 252)
+
+# Example
+```julia
+# Custom momentum signal
+function my_signal(ctx, state)
+    weights = Dict{Symbol,Float64}()
+    for sym in ctx.symbols
+        rets = get_returns(ctx, sym, 20)
+        if length(rets) >= 20
+            momentum = sum(rets)
+            weights[sym] = max(0, momentum)  # Long only if positive momentum
+        else
+            weights[sym] = 0.0
+        end
+    end
+    # Normalize
+    total = sum(values(weights))
+    if total > 0
+        for sym in keys(weights)
+            weights[sym] /= total
+        end
+    end
+    return weights
+end
+
+strategy = SignalStrategy(my_signal, [:AAPL, :MSFT, :GOOGL])
+```
+"""
+mutable struct SignalStrategy <: AbstractStrategy
+    signal_fn::Function
+    symbols::Vector{Symbol}
+    rebalance_frequency::Symbol
+    min_weight::Float64
+    max_weight::Float64
+    context::StrategyContext
+    last_rebalance::Base.RefValue{Union{Nothing,DateTime}}
+
+    function SignalStrategy(
+        signal_fn::Function,
+        symbols::Vector{Symbol};
+        rebalance_frequency::Symbol=:daily,
+        min_weight::Float64=0.0,
+        max_weight::Float64=1.0,
+        lookback::Int=252
+    )
+        rebalance_frequency in (:daily, :weekly, :monthly) ||
+            error("rebalance_frequency must be :daily, :weekly, or :monthly")
+        ctx = StrategyContext(symbols; max_lookback=lookback)
+        new(signal_fn, symbols, rebalance_frequency, min_weight, max_weight, ctx, Ref{Union{Nothing,DateTime}}(nothing))
+    end
+end
+
+function should_rebalance(strategy::SignalStrategy, state::SimulationState)
+    if isnothing(strategy.last_rebalance[])
+        return true
+    end
+
+    last = strategy.last_rebalance[]
+    current = state.timestamp
+
+    if strategy.rebalance_frequency == :daily
+        return Date(current) > Date(last)
+    elseif strategy.rebalance_frequency == :weekly
+        return week(current) != week(last) || year(current) != year(last)
+    else  # monthly
+        return month(current) != month(last) || year(current) != year(last)
+    end
+end
+
+function generate_orders(strategy::SignalStrategy, state::SimulationState)
+    # Update context with current prices
+    update!(strategy.context, state)
+
+    # Check if we should rebalance
+    should_rebalance(strategy, state) || return Order[]
+
+    # Get target weights from signal function
+    raw_weights = strategy.signal_fn(strategy.context, state)
+
+    # Apply constraints
+    weights = Dict{Symbol,Float64}()
+    for sym in strategy.symbols
+        w = get(raw_weights, sym, 0.0)
+        w = clamp(w, strategy.min_weight, strategy.max_weight)
+        weights[sym] = w
+    end
+
+    # Normalize to sum to 1 (or less if all weights are small)
+    total = sum(values(weights))
+    if total > 1.0
+        for sym in keys(weights)
+            weights[sym] /= total
+        end
+    end
+
+    # Generate orders
+    orders = Order[]
+    total_value = portfolio_value(state)
+
+    for (sym, target_weight) in weights
+        haskey(state.prices, sym) || continue
+
+        target_value = total_value * target_weight
+        current_value = get(state.positions, sym, 0.0) * state.prices[sym]
+        diff_value = target_value - current_value
+
+        if abs(diff_value) > 1.0
+            qty = diff_value / state.prices[sym]
+            side = qty > 0 ? :buy : :sell
+            push!(orders, Order(sym, abs(qty), side))
+        end
+    end
+
+    strategy.last_rebalance[] = state.timestamp
+    return orders
+end
+
+# ============================================================================
+# Momentum Strategy
+# ============================================================================
+
+"""
+    MomentumStrategy <: AbstractStrategy
+
+Trend-following strategy that goes long assets with positive momentum.
+
+Uses past returns over a lookback period to rank assets and allocate
+to top performers.
+
+# Fields
+- `symbols::Vector{Symbol}` - Assets to trade
+- `lookback::Int` - Lookback period for momentum calculation (default: 20)
+- `top_n::Int` - Number of top assets to hold (default: all with positive momentum)
+- `rebalance_frequency::Symbol` - :daily, :weekly, or :monthly
+
+# Example
+```julia
+# Hold top 3 momentum stocks, rebalance monthly
+strategy = MomentumStrategy(
+    [:AAPL, :MSFT, :GOOGL, :AMZN, :META],
+    lookback=60,
+    top_n=3,
+    rebalance_frequency=:monthly
+)
+```
+"""
+mutable struct MomentumStrategy <: AbstractStrategy
+    symbols::Vector{Symbol}
+    lookback::Int
+    top_n::Int
+    rebalance_frequency::Symbol
+    context::StrategyContext
+    last_rebalance::Base.RefValue{Union{Nothing,DateTime}}
+
+    function MomentumStrategy(
+        symbols::Vector{Symbol};
+        lookback::Int=20,
+        top_n::Int=0,  # 0 means all with positive momentum
+        rebalance_frequency::Symbol=:monthly
+    )
+        rebalance_frequency in (:daily, :weekly, :monthly) ||
+            error("rebalance_frequency must be :daily, :weekly, or :monthly")
+        n = top_n > 0 ? top_n : length(symbols)
+        ctx = StrategyContext(symbols; max_lookback=lookback + 10)
+        new(symbols, lookback, n, rebalance_frequency, ctx, Ref{Union{Nothing,DateTime}}(nothing))
+    end
+end
+
+function should_rebalance(strategy::MomentumStrategy, state::SimulationState)
+    if isnothing(strategy.last_rebalance[])
+        return true
+    end
+
+    last = strategy.last_rebalance[]
+    current = state.timestamp
+
+    if strategy.rebalance_frequency == :daily
+        return Date(current) > Date(last)
+    elseif strategy.rebalance_frequency == :weekly
+        return week(current) != week(last) || year(current) != year(last)
+    else
+        return month(current) != month(last) || year(current) != year(last)
+    end
+end
+
+function generate_orders(strategy::MomentumStrategy, state::SimulationState)
+    update!(strategy.context, state)
+    should_rebalance(strategy, state) || return Order[]
+
+    # Compute momentum scores
+    scores = Dict{Symbol,Float64}()
+    for sym in strategy.symbols
+        rets = get_returns(strategy.context, sym, strategy.lookback)
+        if length(rets) >= strategy.lookback
+            # Momentum = cumulative return over lookback
+            scores[sym] = sum(rets)
+        end
+    end
+
+    # Not enough history yet
+    isempty(scores) && return Order[]
+
+    # Rank and select top N
+    sorted_assets = sort(collect(scores), by=x -> -x[2])
+    selected = sorted_assets[1:min(strategy.top_n, length(sorted_assets))]
+
+    # Only keep positive momentum (or all if top_n specified)
+    if strategy.top_n == 0
+        selected = filter(x -> x[2] > 0, selected)
+    end
+
+    # Equal weight among selected
+    weights = Dict{Symbol,Float64}()
+    if !isempty(selected)
+        w = 1.0 / length(selected)
+        for (sym, _) in selected
+            weights[sym] = w
+        end
+    end
+
+    # Generate orders
+    orders = Order[]
+    total_value = portfolio_value(state)
+
+    for sym in strategy.symbols
+        haskey(state.prices, sym) || continue
+
+        target_weight = get(weights, sym, 0.0)
+        target_value = total_value * target_weight
+        current_value = get(state.positions, sym, 0.0) * state.prices[sym]
+        diff_value = target_value - current_value
+
+        if abs(diff_value) > 1.0
+            qty = diff_value / state.prices[sym]
+            side = qty > 0 ? :buy : :sell
+            push!(orders, Order(sym, abs(qty), side))
+        end
+    end
+
+    strategy.last_rebalance[] = state.timestamp
+    return orders
+end
+
+# ============================================================================
+# Mean Reversion Strategy
+# ============================================================================
+
+"""
+    MeanReversionStrategy <: AbstractStrategy
+
+Contrarian strategy that buys underperformers and sells outperformers.
+
+Uses z-scores of recent returns to identify assets that have deviated
+from their mean and are likely to revert.
+
+# Fields
+- `symbols::Vector{Symbol}` - Assets to trade
+- `lookback::Int` - Lookback for mean/std calculation (default: 20)
+- `entry_threshold::Float64` - Z-score threshold for entry (default: 1.5)
+- `rebalance_frequency::Symbol` - :daily, :weekly, or :monthly
+
+# Example
+```julia
+# Mean reversion with 2 std dev entry threshold
+strategy = MeanReversionStrategy(
+    [:AAPL, :MSFT, :GOOGL],
+    lookback=20,
+    entry_threshold=2.0,
+    rebalance_frequency=:daily
+)
+```
+"""
+mutable struct MeanReversionStrategy <: AbstractStrategy
+    symbols::Vector{Symbol}
+    lookback::Int
+    entry_threshold::Float64
+    rebalance_frequency::Symbol
+    context::StrategyContext
+    last_rebalance::Base.RefValue{Union{Nothing,DateTime}}
+
+    function MeanReversionStrategy(
+        symbols::Vector{Symbol};
+        lookback::Int=20,
+        entry_threshold::Float64=1.5,
+        rebalance_frequency::Symbol=:daily
+    )
+        rebalance_frequency in (:daily, :weekly, :monthly) ||
+            error("rebalance_frequency must be :daily, :weekly, or :monthly")
+        ctx = StrategyContext(symbols; max_lookback=lookback + 10)
+        new(symbols, lookback, entry_threshold, rebalance_frequency, ctx, Ref{Union{Nothing,DateTime}}(nothing))
+    end
+end
+
+function should_rebalance(strategy::MeanReversionStrategy, state::SimulationState)
+    if isnothing(strategy.last_rebalance[])
+        return true
+    end
+
+    last = strategy.last_rebalance[]
+    current = state.timestamp
+
+    if strategy.rebalance_frequency == :daily
+        return Date(current) > Date(last)
+    elseif strategy.rebalance_frequency == :weekly
+        return week(current) != week(last) || year(current) != year(last)
+    else
+        return month(current) != month(last) || year(current) != year(last)
+    end
+end
+
+function generate_orders(strategy::MeanReversionStrategy, state::SimulationState)
+    update!(strategy.context, state)
+    should_rebalance(strategy, state) || return Order[]
+
+    # Compute z-scores
+    z_scores = Dict{Symbol,Float64}()
+    for sym in strategy.symbols
+        rets = get_returns(strategy.context, sym, strategy.lookback)
+        if length(rets) >= strategy.lookback
+            μ = mean(rets)
+            σ = std(rets)
+            if σ > 1e-10
+                # Current return z-score
+                current_ret = rets[end]
+                z_scores[sym] = (current_ret - μ) / σ
+            end
+        end
+    end
+
+    isempty(z_scores) && return Order[]
+
+    # Compute weights: overweight oversold (negative z), underweight overbought
+    weights = Dict{Symbol,Float64}()
+    raw_signals = Dict{Symbol,Float64}()
+
+    for (sym, z) in z_scores
+        if z < -strategy.entry_threshold
+            # Oversold - go long
+            raw_signals[sym] = -z  # Positive signal for negative z
+        elseif z > strategy.entry_threshold
+            # Overbought - reduce/short (but we'll cap at 0 for long-only)
+            raw_signals[sym] = 0.0
+        else
+            # Neutral zone - hold baseline
+            raw_signals[sym] = 1.0
+        end
+    end
+
+    # Normalize
+    total = sum(values(raw_signals))
+    if total > 0
+        for sym in keys(raw_signals)
+            weights[sym] = raw_signals[sym] / total
+        end
+    end
+
+    # Generate orders
+    orders = Order[]
+    total_value = portfolio_value(state)
+
+    for sym in strategy.symbols
+        haskey(state.prices, sym) || continue
+
+        target_weight = get(weights, sym, 0.0)
+        target_value = total_value * target_weight
+        current_value = get(state.positions, sym, 0.0) * state.prices[sym]
+        diff_value = target_value - current_value
+
+        if abs(diff_value) > 1.0
+            qty = diff_value / state.prices[sym]
+            side = qty > 0 ? :buy : :sell
+            push!(orders, Order(sym, abs(qty), side))
+        end
+    end
+
+    strategy.last_rebalance[] = state.timestamp
+    return orders
+end
+
+# ============================================================================
+# Composite Strategy
+# ============================================================================
+
+"""
+    CompositeStrategy <: AbstractStrategy
+
+Combines multiple strategies with specified weights.
+
+Each sub-strategy generates target weights, which are then combined
+according to the strategy weights.
+
+# Fields
+- `strategies::Vector{<:AbstractStrategy}` - Sub-strategies
+- `strategy_weights::Vector{Float64}` - Weight for each strategy (must sum to 1.0)
+- `symbols::Vector{Symbol}` - All symbols across strategies
+
+# Example
+```julia
+# 60% momentum, 40% mean reversion
+momentum = MomentumStrategy(symbols, lookback=60)
+mean_rev = MeanReversionStrategy(symbols, lookback=20)
+
+strategy = CompositeStrategy(
+    [momentum, mean_rev],
+    [0.6, 0.4]
+)
+```
+"""
+mutable struct CompositeStrategy <: AbstractStrategy
+    strategies::Vector{Any}  # AbstractStrategy
+    strategy_weights::Vector{Float64}
+    symbols::Vector{Symbol}
+    last_rebalance::Base.RefValue{Union{Nothing,DateTime}}
+
+    function CompositeStrategy(
+        strategies::Vector,
+        strategy_weights::Vector{Float64}
+    )
+        length(strategies) == length(strategy_weights) ||
+            error("Number of strategies must match number of weights")
+        abs(sum(strategy_weights) - 1.0) < 0.01 ||
+            error("Strategy weights must sum to 1.0")
+
+        # Collect all symbols
+        all_symbols = Set{Symbol}()
+        for s in strategies
+            if hasproperty(s, :symbols)
+                union!(all_symbols, s.symbols)
+            elseif hasproperty(s, :target_weights)
+                union!(all_symbols, keys(s.target_weights))
+            end
+        end
+
+        new(strategies, strategy_weights, collect(all_symbols), Ref{Union{Nothing,DateTime}}(nothing))
+    end
+end
+
+function generate_orders(strategy::CompositeStrategy, state::SimulationState)
+    # Collect weights from each sub-strategy
+    combined_weights = Dict{Symbol,Float64}(s => 0.0 for s in strategy.symbols)
+
+    for (i, sub_strategy) in enumerate(strategy.strategies)
+        sw = strategy.strategy_weights[i]
+
+        # Generate orders from sub-strategy (updates its internal state)
+        sub_orders = generate_orders(sub_strategy, state)
+
+        # Extract target weights from sub-strategy
+        sub_weights = Dict{Symbol,Float64}()
+        if hasproperty(sub_strategy, :target_weights)
+            sub_weights = sub_strategy.target_weights
+        elseif hasproperty(sub_strategy, :context)
+            # For signal-based strategies, we need to recalculate
+            # Actually, let's compute implied weights from orders + current positions
+            total_value = portfolio_value(state)
+            for sym in strategy.symbols
+                current_value = get(state.positions, sym, 0.0) * get(state.prices, sym, 0.0)
+                # Find order for this symbol
+                order_value = 0.0
+                for o in sub_orders
+                    if o.symbol == sym
+                        price = state.prices[sym]
+                        order_value = o.side == :buy ? o.quantity * price : -o.quantity * price
+                        break
+                    end
+                end
+                target_value = current_value + order_value
+                sub_weights[sym] = total_value > 0 ? target_value / total_value : 0.0
+            end
+        end
+
+        # Add weighted contribution
+        for (sym, w) in sub_weights
+            combined_weights[sym] = get(combined_weights, sym, 0.0) + sw * w
+        end
+    end
+
+    # Normalize
+    total = sum(values(combined_weights))
+    if total > 0
+        for sym in keys(combined_weights)
+            combined_weights[sym] /= total
+        end
+    end
+
+    # Generate orders
+    orders = Order[]
+    total_value = portfolio_value(state)
+
+    for (sym, target_weight) in combined_weights
         haskey(state.prices, sym) || continue
 
         target_value = total_value * target_weight
@@ -834,5 +1430,10 @@ export BacktestResult, backtest, compute_backtest_metrics
 export WalkForwardConfig, WalkForwardPeriod, WalkForwardResult
 export walk_forward_backtest
 export compute_extended_metrics
+# Custom strategy framework
+export StrategyContext, update!, get_returns, get_prices
+export SignalStrategy
+export MomentumStrategy, MeanReversionStrategy
+export CompositeStrategy
 
 end

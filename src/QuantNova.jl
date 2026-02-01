@@ -136,6 +136,11 @@ export VolatilityTargetStrategy, estimate_ewma_volatility
 export BacktestResult, backtest, compute_backtest_metrics
 export WalkForwardConfig, WalkForwardPeriod, WalkForwardResult
 export walk_forward_backtest, compute_extended_metrics
+# Custom strategy framework
+export StrategyContext, get_returns, get_prices
+export SignalStrategy
+export MomentumStrategy, MeanReversionStrategy
+export CompositeStrategy
 
 # Scenario Analysis
 include("ScenarioAnalysis.jl")

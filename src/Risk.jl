@@ -10,10 +10,6 @@ using ..Core: AbstractRiskMeasure
 using ..PortfolioModule
 using Statistics
 
-# ============================================================================
-# Risk Measure Types
-# ============================================================================
-
 """
     VaR <: AbstractRiskMeasure
 
@@ -72,10 +68,6 @@ Maximum peak-to-trough decline.
 """
 struct MaxDrawdown <: AbstractRiskMeasure end
 
-# ============================================================================
-# Compute Interface
-# ============================================================================
-
 """
     compute(measure::AbstractRiskMeasure, returns)
 
@@ -128,10 +120,6 @@ function compute(::MaxDrawdown, returns::AbstractVector)
 
     return max_dd
 end
-
-# ============================================================================
-# Exports
-# ============================================================================
 
 export VaR, CVaR, Volatility, Sharpe, MaxDrawdown
 export compute

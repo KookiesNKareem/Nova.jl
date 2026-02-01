@@ -3,16 +3,6 @@ module Models
 using Distributions: Normal, cdf
 using LinearAlgebra: eigen
 
-# ============================================================================
-# SABR Model
-# ============================================================================
-
-# SABR parameters: (α, β, ρ, ν)
-# α = initial volatility level
-# β = CEV exponent (usually fixed at 0.5 or 1.0)
-# ρ = correlation between spot and vol (-1 to 1)
-# ν = vol of vol
-
 """
     SABRParams{T1,T2,T3,T4}
 
@@ -152,20 +142,9 @@ function sabr_price(F, K, T, r, params::SABRParams, optiontype::Symbol)
     return black76(F, K, T, r, σ, optiontype)
 end
 
-# ============================================================================
-# Heston Model
-# ============================================================================
-
 # TODO: Add Feller condition validation: 2κθ > σ² ensures variance stays positive
 # TODO: Add FFT-based pricing for faster computation with many strikes
 # TODO: Consider adding Heston-with-jumps (SVJ) model variant
-
-# Heston parameters: (v0, θ, κ, σ, ρ)
-# v0 = initial variance
-# θ = long-term variance (mean reversion level)
-# κ = mean reversion speed
-# σ = vol of vol
-# ρ = correlation between spot and vol
 
 """
     HestonParams{T1,T2,T3,T4,T5}
@@ -329,10 +308,6 @@ end
 function heston_price(S, K, T, r, params::HestonParams, optiontype::Symbol; N::Int=128)
     heston_price(S, K, T, r, 0.0, params, optiontype; N=N)
 end
-
-# ============================================================================
-# Exports
-# ============================================================================
 
 export SABRParams, sabr_implied_vol, sabr_price, black76
 export HestonParams, heston_price, heston_characteristic
