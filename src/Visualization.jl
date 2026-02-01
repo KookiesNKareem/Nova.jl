@@ -133,8 +133,33 @@ Return the list of available visualization views for the given data type.
 """
 available_views(data) = get(AVAILABLE_VIEWS, typeof(data), Symbol[])
 
+# ============================================================================
+# Render function - implemented by Makie extension
+# ============================================================================
+
+"""
+    render(spec::VisualizationSpec)
+
+Render a visualization specification to produce a plot.
+
+This function is implemented by the Makie extension (QuantNovaMakieExt).
+To use it, load Makie or one of its backends (CairoMakie, GLMakie, WGLMakie).
+
+# Examples
+```julia
+using QuantNova
+using CairoMakie  # or GLMakie, WGLMakie
+
+result = backtest(strategy, data)
+spec = visualize(result, :equity)
+fig = render(spec)
+```
+"""
+function render end
+
 export AbstractVisualization, VisualizationSpec
 export visualize, set_theme!, get_theme, available_views
 export LIGHT_THEME, DARK_THEME, COLORS
+export render
 
 end # module

@@ -193,5 +193,6 @@ using .Visualization
 export AbstractVisualization, VisualizationSpec
 export visualize, set_theme!, get_theme, available_views
 export LIGHT_THEME, DARK_THEME, COLORS
+export render
 
 end
