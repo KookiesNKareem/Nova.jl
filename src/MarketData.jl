@@ -3,6 +3,7 @@ module MarketData
 using ..Core
 using Dates
 using DelimitedFiles
+using YFinance
 
 # ============================================================================
 # Abstract Types
@@ -222,6 +223,191 @@ function save(adapter::CSVAdapter, ph::PriceHistory, filepath::String)
 end
 
 # ============================================================================
+# YFinance Integration
+# ============================================================================
+
+"""
+    fetch_prices(symbol::String; range="1y", interval="1d",
+                 startdt=nothing, enddt=nothing, autoadjust=true) -> PriceHistory
+
+Fetch historical price data from Yahoo Finance.
+
+# Arguments
+- `symbol` - Ticker symbol (e.g., "AAPL", "MSFT", "SPY")
+- `range` - Time range: "1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"
+- `interval` - Data interval: "1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"
+- `startdt` - Start date (overrides range if provided), format: "YYYY-MM-DD" or Date
+- `enddt` - End date, format: "YYYY-MM-DD" or Date
+- `autoadjust` - Whether to use adjusted prices (default: true)
+
+# Examples
+```julia
+# Get 1 year of daily AAPL data
+prices = fetch_prices("AAPL")
+
+# Get 5 years of weekly data
+prices = fetch_prices("AAPL", range="5y", interval="1wk")
+
+# Get data for a specific date range
+prices = fetch_prices("AAPL", startdt="2020-01-01", enddt="2024-01-01")
+```
+"""
+function fetch_prices(symbol::String;
+                      range::String="1y",
+                      interval::String="1d",
+                      startdt::Union{Nothing, String, Date}=nothing,
+                      enddt::Union{Nothing, String, Date}=nothing,
+                      autoadjust::Bool=true)
+
+    # Build kwargs for YFinance
+    kwargs = Dict{Symbol, Any}()
+    kwargs[:interval] = interval
+    kwargs[:autoadjust] = autoadjust
+
+    if startdt !== nothing
+        kwargs[:startdt] = string(startdt)
+        if enddt !== nothing
+            kwargs[:enddt] = string(enddt)
+        end
+    else
+        kwargs[:range] = range
+    end
+
+    # Fetch from Yahoo Finance
+    data = get_prices(symbol; kwargs...)
+
+    # Convert to PriceHistory
+    _yfinance_to_pricehistory(symbol, data)
+end
+
+"""
+    fetch_multiple(symbols::Vector{String}; align_dates=true, kwargs...) -> Vector{PriceHistory}
+
+Fetch historical price data for multiple symbols.
+
+# Arguments
+- `symbols` - Vector of ticker symbols
+- `align_dates` - Whether to align all histories to common dates (default: true)
+- `kwargs...` - Arguments passed to `fetch_prices`
+
+# Examples
+```julia
+# Fetch and align multiple stocks
+histories = fetch_multiple(["AAPL", "MSFT", "GOOGL"])
+
+# Access individual histories
+aapl, msft, googl = histories
+```
+"""
+function fetch_multiple(symbols::Vector{String}; align_dates::Bool=true, kwargs...)
+    histories = [fetch_prices(s; kwargs...) for s in symbols]
+
+    if align_dates && length(histories) > 1
+        return align(histories)
+    end
+
+    histories
+end
+
+"""
+    fetch_returns(symbol::String; type=:simple, kwargs...) -> Vector{Float64}
+
+Convenience function to fetch prices and compute returns directly.
+
+# Arguments
+- `symbol` - Ticker symbol
+- `type` - :simple or :log returns
+- `kwargs...` - Arguments passed to `fetch_prices`
+"""
+function fetch_returns(symbol::String; type::Symbol=:simple, kwargs...)
+    ph = fetch_prices(symbol; kwargs...)
+    returns(ph; type=type)
+end
+
+"""
+    fetch_return_matrix(symbols::Vector{String}; type=:simple, kwargs...) -> Matrix{Float64}
+
+Fetch aligned returns for multiple symbols as a matrix.
+
+Returns an (n_periods x n_assets) matrix suitable for portfolio optimization.
+
+# Examples
+```julia
+# Get return matrix for portfolio optimization
+R = fetch_return_matrix(["AAPL", "MSFT", "GOOGL", "AMZN"], range="2y")
+# R is (n_days-1) x 4 matrix
+```
+"""
+function fetch_return_matrix(symbols::Vector{String}; type::Symbol=:simple, kwargs...)
+    histories = fetch_multiple(symbols; align_dates=true, kwargs...)
+
+    n_periods = length(histories[1]) - 1
+    n_assets = length(symbols)
+
+    R = Matrix{Float64}(undef, n_periods, n_assets)
+    for (j, ph) in enumerate(histories)
+        R[:, j] = returns(ph; type=type)
+    end
+
+    R
+end
+
+"""
+    to_backtest_format(histories::Vector{PriceHistory}) -> (timestamps, price_series)
+
+Convert aligned PriceHistory objects to backtest-compatible format.
+
+Returns a tuple of:
+- `timestamps::Vector{DateTime}` - Common timestamps
+- `price_series::Dict{Symbol,Vector{Float64}}` - Close prices keyed by symbol
+
+# Example
+```julia
+histories = fetch_multiple(["AAPL", "MSFT", "GOOGL"], range="1y")
+timestamps, prices = to_backtest_format(histories)
+result = backtest(strategy, timestamps, prices)
+```
+"""
+function to_backtest_format(histories::Vector{PriceHistory})
+    isempty(histories) && error("No price histories provided")
+
+    timestamps = histories[1].timestamps
+    price_series = Dict{Symbol,Vector{Float64}}()
+
+    for ph in histories
+        price_series[Symbol(ph.symbol)] = ph.close
+    end
+
+    return timestamps, price_series
+end
+
+# Internal: Convert YFinance output to PriceHistory
+function _yfinance_to_pricehistory(symbol::String, data)
+    # YFinance returns a dictionary with vectors
+    # Keys: timestamp, open, high, low, close, vol (and adj_close if requested)
+
+    timestamps = DateTime.(data["timestamp"])
+    open_prices = Float64.(data["open"])
+    high_prices = Float64.(data["high"])
+    low_prices = Float64.(data["low"])
+    close_prices = Float64.(data["close"])
+    volumes = Float64.(data["vol"])
+
+    # Sort by timestamp (YFinance usually returns sorted, but be safe)
+    perm = sortperm(timestamps)
+
+    PriceHistory(
+        symbol,
+        timestamps[perm],
+        open_prices[perm],
+        high_prices[perm],
+        low_prices[perm],
+        close_prices[perm],
+        volumes[perm]
+    )
+end
+
+# ============================================================================
 # Parquet Adapter (Stub - requires Arrow.jl)
 # ============================================================================
 
@@ -370,5 +556,7 @@ export AbstractMarketData, AbstractPriceHistory, AbstractDataAdapter
 export PriceHistory, returns, resample, align
 export CSVAdapter, ParquetAdapter, YAHOO_ADAPTER
 export load, save
+export fetch_prices, fetch_multiple, fetch_returns, fetch_return_matrix
+export to_backtest_format
 
 end

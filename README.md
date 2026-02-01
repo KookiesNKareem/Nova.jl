@@ -1,7 +1,6 @@
 # QuantNova
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://KookiesNKareem.github.io/QuantNova.jl/stable/)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://KookiesNKareem.github.io/QuantNova.jl/dev/)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://KookiesNKareem.github.io/QuantNova.jl/dev/)
 [![Build Status](https://github.com/KookiesNKareem/QuantNova.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/KookiesNKareem/QuantNova.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/KookiesNKareem/QuantNova.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/KookiesNKareem/QuantNova.jl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

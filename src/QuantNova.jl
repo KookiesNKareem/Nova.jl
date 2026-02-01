@@ -98,6 +98,8 @@ using .MarketData
 export AbstractMarketData, AbstractPriceHistory, AbstractDataAdapter
 export PriceHistory, returns, resample, align
 export CSVAdapter, ParquetAdapter, YAHOO_ADAPTER
+export fetch_prices, fetch_multiple, fetch_returns, fetch_return_matrix
+export to_backtest_format
 import .MarketData: load, save
 
 # Interest rates
