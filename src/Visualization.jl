@@ -250,4 +250,22 @@ function save end
 
 export Row, Dashboard, serve, save
 
+# ============================================================================
+# Precompilation
+# ============================================================================
+
+using PrecompileTools
+
+@setup_workload begin
+    @compile_workload begin
+        # Precompile theme operations
+        set_theme!(:dark)
+        set_theme!(:light)
+        get_theme()
+
+        # Precompile spec creation (doesn't require Makie)
+        # These would be precompiled when BacktestResult is available
+    end
+end
+
 end # module
