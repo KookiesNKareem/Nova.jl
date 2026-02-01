@@ -11,17 +11,37 @@ A differentiable quantitative finance library for Julia.
 
 ## Performance
 
-QuantNova.jl vs [QuantLib](https://www.quantlib.org/) C++ (v1.41):
+### Option Pricing (vs QuantLib C++ v1.41)
 
 | Benchmark | QuantNova.jl | QuantLib C++ | |
 |-----------|---------|--------------|---------|
 | European option pricing | 0.04 μs | 5.7 μs | **139x faster** |
-| Greeks (all 5) | 0.08 μs | 5.7 μs | **69x faster** |
-| American option (100-step binomial) | 8.4 μs | 67 μs | **8x faster** |
+| Greeks (all 5 via AD) | 0.08 μs | 5.7 μs | **71x faster** |
+| American option (100-step binomial) | 8.5 μs | 67 μs | **8x faster** |
+| SABR implied vol | 0.04 μs | 0.8 μs | **20x faster** |
+| Batch pricing (1000 options) | 40 μs | 5.7 ms | **142x faster** |
 
-*Benchmarks on Apple M1. See `benchmarks/comparison/` for methodology.*
+### Factor Models & Statistics (vs Python)
 
-**Why the difference?** QuantLib builds a reusable object graph (`Handle`, `Quote`, `PricingEngine`) per instrument—powerful for complex multi-leg structures. QuantNova compiles specialized native code per call via Julia's JIT. The American option benchmark (8x) reflects pure algorithmic performance; European/Greeks benchmarks also capture the object construction difference.
+| Benchmark | QuantNova.jl | Python | |
+|-----------|---------|--------|---------|
+| CAPM regression | 21 μs | 450 μs (statsmodels) | **21x faster** |
+| Fama-French 3-factor | 23 μs | 550 μs (statsmodels) | **24x faster** |
+| Rolling beta (60-day, 5yr) | 376 μs | 12 ms (pandas) | **32x faster** |
+| Information coefficient | 0.6 μs | 25 μs (scipy) | **40x faster** |
+| Sharpe ratio | 0.96 μs | 2 μs (numpy) | **2x faster** |
+
+### Backtesting (vs Python pandas)
+
+| Benchmark | QuantNova.jl | Python (pandas) | |
+|-----------|---------|-----------------|---------|
+| SMA crossover (5yr daily) | 104 μs | 2.5 ms | **24x faster** |
+| Rolling Sharpe (252-day) | 313 μs | 800 μs | **3x faster** |
+| Full metrics (Sharpe, MaxDD, etc.) | 7 μs | 150 μs | **21x faster** |
+
+*Benchmarks on Apple M1. See `benchmarks/comparison/` for methodology and reproducibility.*
+
+**Why the difference?** Julia compiles specialized native code via JIT, eliminating Python's interpreter overhead. QuantLib's object graph (`Handle`, `Quote`, `PricingEngine`) provides flexibility for complex structures but adds construction cost. QuantNova's pure-function design enables aggressive compiler optimization.
 
 ## Features
 
