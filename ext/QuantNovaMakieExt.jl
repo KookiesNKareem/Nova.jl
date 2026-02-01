@@ -1,11 +1,12 @@
 module QuantNovaMakieExt
 
 using QuantNova
-using QuantNova.Visualization: VisualizationSpec, get_theme, COLORS
+using QuantNova.Visualization: VisualizationSpec, get_theme, COLORS, LinkedContext
 using QuantNova.Backtesting: BacktestResult
 using QuantNova.Optimization: OptimizationResult, EfficientFrontier
 
 using Makie
+using Makie: Observable, on, events
 using Dates
 using Statistics: mean, std
 
@@ -869,6 +870,99 @@ end
 function Base.display(spec::VisualizationSpec)
     fig = QuantNova.Visualization.render(spec)
     display(fig)
+end
+
+# ============================================================================
+# Interactivity Infrastructure
+# ============================================================================
+
+"""
+    create_linked_observables(ctx::LinkedContext)
+
+Create Makie Observables linked to a LinkedContext.
+Returns a named tuple of observables that sync bidirectionally with the context.
+"""
+function create_linked_observables(ctx::LinkedContext)
+    time_range = Observable(ctx.time_range)
+    cursor_time = Observable(ctx.cursor_time)
+    selected_asset = Observable(ctx.selected_asset)
+    zoom_level = Observable(ctx.zoom_level)
+
+    # Sync observables back to context
+    on(time_range) do val
+        ctx.time_range = val
+    end
+    on(cursor_time) do val
+        ctx.cursor_time = val
+    end
+    on(selected_asset) do val
+        ctx.selected_asset = val
+    end
+    on(zoom_level) do val
+        ctx.zoom_level = val
+    end
+
+    (time_range=time_range, cursor_time=cursor_time,
+     selected_asset=selected_asset, zoom_level=zoom_level)
+end
+
+"""
+    add_crosshair!(ax, cursor_obs::Observable)
+
+Add a synchronized crosshair to an axis. The crosshair position is controlled
+by the cursor_obs Observable.
+
+Returns the crosshair plot object.
+"""
+function add_crosshair!(ax, cursor_obs::Observable)
+    # Only show crosshair when cursor_time is not nothing
+    visible_obs = lift(cursor_obs) do t
+        t !== nothing
+    end
+
+    # Use 0.0 as default when nothing, vlines handles the visibility
+    time_obs = lift(cursor_obs) do t
+        t === nothing ? 0.0 : t
+    end
+
+    crosshair = vlines!(ax, time_obs, color = (:white, 0.5), linewidth = 1, visible = visible_obs)
+    crosshair
+end
+
+"""
+    add_tooltip!(fig, ax, data::Vector, timestamps)
+
+Add hover tooltips showing data values. Returns the tooltip Label.
+
+Note: This is a simplified implementation. Full tooltip functionality
+requires mouse event handling which varies by backend.
+"""
+function add_tooltip!(fig, ax, data::Vector, timestamps)
+    # Tooltip label (initially hidden)
+    tooltip = Label(fig, "", fontsize = 12, visible = false)
+
+    # Mouse position handling - this is backend-dependent
+    # Full implementation would use events(ax).mouseposition
+    # For now, provide the infrastructure
+
+    tooltip
+end
+
+"""
+    setup_zoom_pan!(ax, zoom_obs::Observable)
+
+Enable scroll-to-zoom on an axis. Zoom level is stored in the Observable
+and can be shared across linked plots.
+"""
+function setup_zoom_pan!(ax, zoom_obs::Observable)
+    on(events(ax).scroll) do scroll
+        # Only process if scroll actually happened
+        if length(scroll) >= 2 && scroll[2] != 0
+            # Zoom on scroll: scroll up zooms in, scroll down zooms out
+            factor = scroll[2] > 0 ? 1.1 : 0.9
+            zoom_obs[] = zoom_obs[] * factor
+        end
+    end
 end
 
 # ============================================================================

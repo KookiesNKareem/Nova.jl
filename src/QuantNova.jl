@@ -190,7 +190,7 @@ export up_capture_ratio, down_capture_ratio, capture_ratio
 # Visualization
 include("Visualization.jl")
 using .Visualization
-export AbstractVisualization, VisualizationSpec
+export AbstractVisualization, VisualizationSpec, LinkedContext
 export visualize, set_theme!, get_theme, available_views
 export LIGHT_THEME, DARK_THEME, COLORS
 export render

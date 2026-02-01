@@ -134,6 +134,27 @@ Return the list of available visualization views for the given data type.
 available_views(data) = get(AVAILABLE_VIEWS, typeof(data), Symbol[])
 
 # ============================================================================
+# LinkedContext for Interactive Plots
+# ============================================================================
+
+"""
+    LinkedContext
+
+Shared state for linked interactive plots. All plots sharing a context
+will synchronize their cursors, zoom levels, and selections.
+"""
+mutable struct LinkedContext
+    time_range::Tuple{Float64,Float64}
+    cursor_time::Union{Float64,Nothing}
+    selected_asset::Union{Symbol,Nothing}
+    zoom_level::Float64
+
+    function LinkedContext()
+        new((0.0, 1.0), nothing, nothing, 1.0)
+    end
+end
+
+# ============================================================================
 # Render function - implemented by Makie extension
 # ============================================================================
 
@@ -157,7 +178,7 @@ fig = render(spec)
 """
 function render end
 
-export AbstractVisualization, VisualizationSpec
+export AbstractVisualization, VisualizationSpec, LinkedContext
 export visualize, set_theme!, get_theme, available_views
 export LIGHT_THEME, DARK_THEME, COLORS
 export render

@@ -71,4 +71,29 @@ Random.seed!(42)
         @test :drawdown in views
         @test :dashboard in views
     end
+
+    @testset "LinkedContext" begin
+        ctx = LinkedContext()
+        @test ctx.time_range == (0.0, 1.0)
+        @test ctx.cursor_time === nothing
+        @test ctx.selected_asset === nothing
+        @test ctx.zoom_level == 1.0
+
+        # Modify context
+        ctx.time_range = (0.5, 1.0)
+        @test ctx.time_range == (0.5, 1.0)
+
+        ctx.cursor_time = 0.75
+        @test ctx.cursor_time == 0.75
+
+        ctx.selected_asset = :AAPL
+        @test ctx.selected_asset == :AAPL
+
+        ctx.zoom_level = 2.0
+        @test ctx.zoom_level == 2.0
+
+        # Reset cursor
+        ctx.cursor_time = nothing
+        @test ctx.cursor_time === nothing
+    end
 end
