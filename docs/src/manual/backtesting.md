@@ -2,8 +2,8 @@
 
 Run historical backtests with customizable strategies.
 
-![Backtest Dashboard](../assets/viz-dashboard-light.png){.light-only}
-![Backtest Dashboard](../assets/viz-dashboard-dark.png){.dark-only}
+<img src="../assets/viz-dashboard-light.png" class="only-light" alt="Backtest Dashboard">
+<img src="../assets/viz-dashboard-dark.png" class="only-dark" alt="Backtest Dashboard">
 
 ## Quick Start
 
@@ -74,8 +74,8 @@ QuantNova provides built-in visualization for backtest results using Makie.jl.
 
 ### Equity Curve
 
-![Equity Curve](../assets/viz-equity-light.png){.light-only}
-![Equity Curve](../assets/viz-equity-dark.png){.dark-only}
+<img src="../assets/viz-equity-light.png" class="only-light" alt="Equity Curve">
+<img src="../assets/viz-equity-dark.png" class="only-dark" alt="Equity Curve">
 
 ```julia
 using CairoMakie  # or GLMakie for interactive plots
@@ -86,8 +86,8 @@ fig = render(spec)
 
 ### Drawdown
 
-![Drawdown](../assets/viz-drawdown-light.png){.light-only}
-![Drawdown](../assets/viz-drawdown-dark.png){.dark-only}
+<img src="../assets/viz-drawdown-light.png" class="only-light" alt="Drawdown">
+<img src="../assets/viz-drawdown-dark.png" class="only-dark" alt="Drawdown">
 
 ```julia
 spec = visualize(result, :drawdown; title="Drawdown Analysis")
@@ -96,8 +96,8 @@ fig = render(spec)
 
 ### Returns Distribution
 
-![Returns Distribution](../assets/viz-returns-light.png){.light-only}
-![Returns Distribution](../assets/viz-returns-dark.png){.dark-only}
+<img src="../assets/viz-returns-light.png" class="only-light" alt="Returns Distribution">
+<img src="../assets/viz-returns-dark.png" class="only-dark" alt="Returns Distribution">
 
 ```julia
 spec = visualize(result, :returns; title="Daily Returns")
@@ -106,8 +106,8 @@ fig = render(spec)
 
 ### Rolling Metrics
 
-![Rolling Metrics](../assets/viz-rolling-light.png){.light-only}
-![Rolling Metrics](../assets/viz-rolling-dark.png){.dark-only}
+<img src="../assets/viz-rolling-light.png" class="only-light" alt="Rolling Metrics">
+<img src="../assets/viz-rolling-dark.png" class="only-dark" alt="Rolling Metrics">
 
 ```julia
 spec = visualize(result, :rolling; title="Rolling Performance", window=63)

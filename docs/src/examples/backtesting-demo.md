@@ -66,8 +66,8 @@ spec = visualize(result, :equity; title="Portfolio Value Over Time")
 fig = render(spec)
 ```
 
-![Equity Curve](../assets/viz-equity-light.png){.light-only}
-![Equity Curve](../assets/viz-equity-dark.png){.dark-only}
+<img src="../assets/viz-equity-light.png" class="only-light" alt="Equity Curve">
+<img src="../assets/viz-equity-dark.png" class="only-dark" alt="Equity Curve">
 
 ### Drawdown Analysis
 
@@ -78,8 +78,8 @@ spec = visualize(result, :drawdown; title="Drawdown Analysis")
 fig = render(spec)
 ```
 
-![Drawdown](../assets/viz-drawdown-light.png){.light-only}
-![Drawdown](../assets/viz-drawdown-dark.png){.dark-only}
+<img src="../assets/viz-drawdown-light.png" class="only-light" alt="Drawdown">
+<img src="../assets/viz-drawdown-dark.png" class="only-dark" alt="Drawdown">
 
 ### Returns Distribution
 
@@ -90,8 +90,8 @@ spec = visualize(result, :returns; title="Daily Returns Distribution")
 fig = render(spec)
 ```
 
-![Returns Distribution](../assets/viz-returns-light.png){.light-only}
-![Returns Distribution](../assets/viz-returns-dark.png){.dark-only}
+<img src="../assets/viz-returns-light.png" class="only-light" alt="Returns Distribution">
+<img src="../assets/viz-returns-dark.png" class="only-dark" alt="Returns Distribution">
 
 ### Rolling Performance
 
@@ -102,8 +102,8 @@ spec = visualize(result, :rolling; title="Rolling Metrics (63-day)", window=63)
 fig = render(spec)
 ```
 
-![Rolling Metrics](../assets/viz-rolling-light.png){.light-only}
-![Rolling Metrics](../assets/viz-rolling-dark.png){.dark-only}
+<img src="../assets/viz-rolling-light.png" class="only-light" alt="Rolling Metrics">
+<img src="../assets/viz-rolling-dark.png" class="only-dark" alt="Rolling Metrics">
 
 ### Dashboard View
 
@@ -114,8 +114,8 @@ spec = visualize(result, :dashboard; title="Backtest Dashboard")
 fig = render(spec)
 ```
 
-![Dashboard](../assets/viz-dashboard-light.png){.light-only}
-![Dashboard](../assets/viz-dashboard-dark.png){.dark-only}
+<img src="../assets/viz-dashboard-light.png" class="only-light" alt="Dashboard">
+<img src="../assets/viz-dashboard-dark.png" class="only-dark" alt="Dashboard">
 
 ## Saving Figures
 

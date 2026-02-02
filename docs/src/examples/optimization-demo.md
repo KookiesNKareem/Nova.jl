@@ -76,8 +76,8 @@ spec = visualize(result, :frontier;
 fig = render(spec)
 ```
 
-![Efficient Frontier](../assets/viz-frontier-light.png){.light-only}
-![Efficient Frontier](../assets/viz-frontier-dark.png){.dark-only}
+<img src="../assets/viz-frontier-light.png" class="only-light" alt="Efficient Frontier">
+<img src="../assets/viz-frontier-dark.png" class="only-dark" alt="Efficient Frontier">
 
 The efficient frontier shows:
 - **Blue curve**: Optimal portfolios offering the best return for each risk level
@@ -98,8 +98,8 @@ spec = visualize(result, :weights;
 fig = render(spec)
 ```
 
-![Portfolio Weights](../assets/viz-weights-light.png){.light-only}
-![Portfolio Weights](../assets/viz-weights-dark.png){.dark-only}
+<img src="../assets/viz-weights-light.png" class="only-light" alt="Portfolio Weights">
+<img src="../assets/viz-weights-dark.png" class="only-dark" alt="Portfolio Weights">
 
 ## Mean-Variance Optimization
 

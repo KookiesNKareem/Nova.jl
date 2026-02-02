@@ -1,0 +1,25 @@
+/* Theme-aware images for VitePress */
+.only-light {
+  display: block;
+}
+.only-dark {
+  display: none;
+}
+.dark .only-light {
+  display: none;
+}
+.dark .only-dark {
+  display: block;
+}
+
+/* Center images and ensure proper sizing */
+img.only-light, img.only-dark {
+  margin: 1.5rem auto;
+  max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dark img.only-dark {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
