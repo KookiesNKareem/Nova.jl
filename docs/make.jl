@@ -22,6 +22,8 @@ makedocs(;
         ],
         "Examples" => [
             "examples/pricing-calibration-demo.md",
+            "examples/backtesting-demo.md",
+            "examples/optimization-demo.md",
             "examples/option-pricing.md",
             "examples/portfolio-risk.md",
             "examples/monte-carlo-exotic.md",
