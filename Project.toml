@@ -1,7 +1,7 @@
 name = "QuantNova"
 uuid = "1b0303c1-8819-4d1c-a929-91cb710ac874"
-authors = ["Kareem Fareed"]
 version = "0.1.0"
+authors = ["Kareem Fareed"]
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -45,6 +45,7 @@ Plots = "1.41.4"
 PrecompileTools = "1.2.1"
 Reactant = "0.2"
 Sobol = "1.5.0"
+Statistics = "1"
 WGLMakie = "0.10, 0.11"
 YFinance = "0.1.11"
 julia = "1.11"
