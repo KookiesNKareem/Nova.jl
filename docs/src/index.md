@@ -118,7 +118,7 @@ Same API, different backends:
 ## Benchmark Methodology
 
 Performance claims and comparisons are fully documented. See the
-[Benchmark Methodology](../manual/benchmarks.md) page for exact scripts,
+[Benchmark Methodology](/manual/benchmarks) page for exact scripts,
 parameters, and run commands.
 
 ## What You Can Build

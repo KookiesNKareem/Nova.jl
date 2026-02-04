@@ -141,7 +141,7 @@ We also price an American option with Longstaff-Schwartz and verify it exceeds t
 Performance claims are based on reproducible benchmark scripts. The full methodology,
 parameters, and run commands are documented here:
 
-- [Benchmark Methodology](../manual/benchmarks.md)
+- [Benchmark Methodology](/manual/benchmarks)
 
 ## Takeaways
 
