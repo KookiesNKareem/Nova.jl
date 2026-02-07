@@ -36,7 +36,7 @@ A differentiable quantitative finance library for Julia. **8-142x faster than Qu
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/KookiesNKareem/QuantNova.jl")
+Pkg.add("QuantNova")
 ```
 
 ## Quick Start
