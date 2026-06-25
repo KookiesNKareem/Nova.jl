@@ -1,7 +1,7 @@
 name = "QuantNova"
 uuid = "1b0303c1-8819-4d1c-a929-91cb710ac874"
-authors = ["Kareem Fareed"]
 version = "0.1.1"
+authors = ["Kareem Fareed"]
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -33,7 +33,7 @@ QuantNovaMakieExt = ["Makie"]
 QuantNovaReactantExt = ["Enzyme", "Reactant"]
 
 [compat]
-Bonito = "3, 4"
+Bonito = "3, 4, 5"
 CairoMakie = "0.12, 0.13"
 DiffResults = "1"
 Distributions = "0.25.123"
